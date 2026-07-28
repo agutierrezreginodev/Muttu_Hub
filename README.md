@@ -26,6 +26,7 @@ pnpm dev
 | `pnpm format:check`    | Prettier check                                |
 | `pnpm typecheck`       | Strict `tsc --noEmit`                         |
 | `pnpm test`            | Vitest unit/component tests                   |
+| `pnpm e2e`             | Playwright E2E suite (see "E2E tests" below)  |
 | `pnpm bootstrap:admin` | Provision the first Administrador (see below) |
 
 ## Database (Supabase)
@@ -56,6 +57,34 @@ mechanism the admin module later uses for every other user) and is
 idempotent: re-running it is a no-op once that email or an active
 Administrador already exists.
 
+## E2E tests
+
+`e2e/` holds a Playwright smoke suite (spec T3): unauthenticated redirect,
+the full invite flow (admin invites a user through the real UI, a real
+email round-trips through the local Supabase mailer, the invitee sets a
+password and lands home), and idle auto-logout with a short test-only
+timeout. It runs against a REAL local Supabase stack — nothing is mocked.
+
+It needs `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
+`SUPABASE_SERVICE_ROLE_KEY` in the environment. **Never write these to
+`.env.local`** for this — export them inline for the one command that
+needs them, sourced from your already-running local stack:
+
+```bash
+supabase start
+eval "$(supabase status -o env)"
+NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
+  NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
+  SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+  pnpm e2e
+```
+
+Playwright starts two `next dev` servers itself (ports 3000 and 3010 — the
+second one only for the idle-logout test's short timeout override) and
+tears them down after the run. In CI (`.github/workflows/ci.yml`'s `e2e`
+job), the same values come from that job's own fresh `supabase start`
+output, never from repository secrets.
+
 ## Conventions
 
 - All user-facing copy lives in `src/messages/es.ts` (Spanish, Rioplatense-neutral).
@@ -68,6 +97,6 @@ Built as stacked PR slices per SDD change `platform-foundation`:
 
 1. PR 1 — Scaffold & hygiene
 2. PR 2 — Database, RLS, seed, pgTAP
-3. **PR 3 — Auth & session** (this branch)
+3. PR 3 — Auth & session
 4. PR 4 — Admin module
-5. PR 5 — E2E & CI gates
+5. **PR 5 — E2E & CI gates** (this branch)
