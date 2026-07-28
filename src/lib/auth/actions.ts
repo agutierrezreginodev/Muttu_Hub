@@ -89,7 +89,9 @@ export interface RecoveryActionState {
   success?: boolean;
 }
 
-async function getOrigin(): Promise<string> {
+/** Exported for reuse by other Server Actions that build absolute redirect
+ * URLs from request headers (e.g. the admin invite flow, Phase 4). */
+export async function getOrigin(): Promise<string> {
   const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
   const protocol = headerList.get("x-forwarded-proto") ?? "http";

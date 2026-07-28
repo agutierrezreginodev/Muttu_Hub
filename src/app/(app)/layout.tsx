@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { getSessionContext } from "@/lib/session/get-session-context";
+import { hasPermission } from "@/lib/permissions";
 import { AppShell } from "@/components/shell/app-shell";
 
 /**
@@ -9,6 +11,11 @@ import { AppShell } from "@/components/shell/app-shell";
  * is defense in depth, not the security boundary — Postgres RLS is
  * (design decision "Security boundary"). Data access below stays
  * RLS-gated even if this check were ever bypassed.
+ *
+ * `canAccessAdmin` only controls whether the shell SHOWS the Admin nav
+ * link (UX, task 4.1's UI-side permissions merge) — it is not the gate.
+ * The actual gate is (app)/admin/layout.tsx's has_permission() RPC call
+ * plus every RLS policy under that module.
  */
 export default async function AppLayout({
   children,
@@ -24,16 +31,16 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  const { data: usuario } = await supabase
-    .from("usuario")
-    .select("nombre, email")
-    .eq("id", user.id)
-    .maybeSingle();
+  const sessionContext = await getSessionContext();
+  const canAccessAdmin = sessionContext
+    ? hasPermission(sessionContext.permisos, "admin", "ver")
+    : false;
 
   return (
     <AppShell
-      userNombre={usuario?.nombre ?? user.email ?? ""}
-      userEmail={usuario?.email ?? user.email ?? ""}
+      userNombre={sessionContext?.nombre ?? user.email ?? ""}
+      userEmail={sessionContext?.email ?? user.email ?? ""}
+      canAccessAdmin={canAccessAdmin}
     >
       {children}
     </AppShell>
