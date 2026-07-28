@@ -43,3 +43,6 @@ pnpm-debug.log*
 supabase/.branches
 supabase/.temp
 supabase/.env
+
+# SDD tooling state (local)
+.atl/
