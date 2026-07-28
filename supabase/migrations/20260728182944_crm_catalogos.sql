@@ -31,8 +31,14 @@
 -- 1. catalogo: generic classification-list storage. Natural text codes
 --    (tipo, codigo) as PK is what makes every promotion below value-
 --    preserving — no id-vs-text refactor, no data rewrite.
---    Decision 7: activo boolean only (no deleted_at, no soft_delete RPC, no
---    DELETE grant anywhere) — activo=false IS deactivation.
+--    Decision 7: activo boolean only (no deleted_at, no DELETE grant
+--    anywhere) — activo=false IS deactivation. CORRECTIVE FIX (post-verify,
+--    obs #155 C1/W1): Decision 7 originally also dropped the
+--    soft_delete_catalogo() RPC in favor of a bare admin.editar-gated column
+--    UPDATE; that left CAT5's referential guard unenforceable and silently
+--    contradicted CAT3's literal RPC requirement. Restored below (section 6)
+--    instead of documenting the gap as an accepted deviation, since the
+--    established RPC pattern is the more consistent fix.
 -- ---------------------------------------------------------------------------
 create table public.catalogo (
   tipo text not null,
@@ -62,11 +68,20 @@ create trigger catalogo_audit_fields
 alter table public.catalogo enable row level security;
 alter table public.catalogo force row level security;
 
+-- `activo` is deliberately EXCLUDED from both column-level UPDATE grants
+-- below (corrective fix, verify obs #155 C1 / W1): it gets the exact same
+-- tamper-proofing treatment as `deleted_at` on every other domain table —
+-- excluded from the grant, settable only via a SECURITY DEFINER function.
+-- CAT3 mandates deactivation via a `soft_delete_catalogo()` RPC gated on
+-- `admin.eliminar`, "same shape as rol/cliente/tarea"; CAT5 mandates that
+-- deactivating an in-use code is rejected. Routing `activo` exclusively
+-- through the RPC below (see section 6) is what makes CAT5's referential
+-- guard actually reachable — a bare column UPDATE has no enforcement point.
 revoke all on public.catalogo from anon, authenticated;
 grant select, insert on public.catalogo to authenticated;
-grant update (etiqueta, orden, activo) on public.catalogo to authenticated;
+grant update (etiqueta, orden) on public.catalogo to authenticated;
 grant select, insert on public.catalogo to service_role;
-grant update (etiqueta, orden, activo) on public.catalogo to service_role;
+grant update (etiqueta, orden) on public.catalogo to service_role;
 
 create policy catalogo_select on public.catalogo
   for select to authenticated using (true);
@@ -130,3 +145,64 @@ alter table public.tarea
     check (prioridad_cat_tipo = 'prioridad'),
   add constraint tarea_prioridad_fk foreign key (prioridad_cat_tipo, prioridad)
     references public.catalogo (tipo, codigo) on update restrict on delete restrict;
+
+-- ---------------------------------------------------------------------------
+-- 6. soft_delete_catalogo(p_tipo, p_codigo): the ONLY path that can ever set
+--    activo = false (corrective fix — verify obs #155, C1/W1). CAT3 mandates
+--    this exact RPC shape ("same shape as rol/cliente/tarea"), gated on
+--    admin.eliminar. CAT5 mandates the referential guard below: a code
+--    currently referenced by any non-deleted cliente/tarea row MUST be
+--    rejected. `on delete restrict` on the composite FKs already blocks
+--    hard-DELETE (tested above); this closes the other half of CAT5 for the
+--    deactivation path, which a bare grant-restricted column UPDATE has no
+--    enforcement point for.
+--
+--    Known consuming columns as of PR1: cliente.tipo_cliente, cliente.estado,
+--    tarea.prioridad. PR2 (cliente extension) and PR3 (contacto/oportunidad)
+--    each add more catalog-consuming columns — this function's guard MUST be
+--    extended in those migrations' own `create or replace function` to check
+--    the new columns too, exactly like grant lists are extended per PR.
+-- ---------------------------------------------------------------------------
+create or replace function private.soft_delete_catalogo(p_tipo text, p_codigo text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not (select private.has_permission('admin', 'eliminar')) then
+    raise exception 'permission denied: admin.eliminar required' using errcode = '42501';
+  end if;
+
+  if exists (
+    select 1 from public.cliente
+    where deleted_at is null
+      and ((tipo_cliente_cat_tipo = p_tipo and tipo_cliente = p_codigo)
+        or (estado_cat_tipo = p_tipo and estado = p_codigo))
+  ) or exists (
+    select 1 from public.tarea
+    where deleted_at is null
+      and prioridad_cat_tipo = p_tipo and prioridad = p_codigo
+  ) then
+    raise exception 'catalogo code in use: cannot deactivate %/%', p_tipo, p_codigo
+      using errcode = '23503';
+  end if;
+
+  update public.catalogo set activo = false
+  where tipo = p_tipo and codigo = p_codigo;
+end;
+$$;
+
+create or replace function public.soft_delete_catalogo(p_tipo text, p_codigo text)
+returns void
+language sql
+security invoker
+set search_path = ''
+as $$
+  select private.soft_delete_catalogo(p_tipo, p_codigo);
+$$;
+
+revoke all on function private.soft_delete_catalogo(text, text) from public, anon;
+grant execute on function private.soft_delete_catalogo(text, text) to authenticated;
+revoke all on function public.soft_delete_catalogo(text, text) from public, anon;
+grant execute on function public.soft_delete_catalogo(text, text) to authenticated;

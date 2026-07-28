@@ -14,7 +14,7 @@
 
 begin;
 
-select plan(30);
+select plan(35);
 
 -- Fixtures (superuser). Reuses the same role/user shape as domain_rules.sql
 -- and audit_security.sql — admin has admin.crear/admin.editar; coordinador
@@ -151,6 +151,45 @@ select throws_ok(
 select lives_ok(
   $$update public.cliente set tipo_cliente = null where id = 301$$,
   'cliente.tipo_cliente FK accepts NULL (MATCH SIMPLE) even with zero seeded codes');
+
+-- 24-28: CAT5 corrective fix (verify obs #155, C1) — deactivating an in-use
+-- catalogo row MUST be rejected; deactivating an unused code MUST still
+-- succeed. Enforcement point is the soft_delete_catalogo() RPC, gated on
+-- admin.eliminar (CAT3's literal wording, restored — resolves W1): `activo`
+-- is excluded from the direct `grant update (...)` list entirely (same
+-- exclusion treatment as `deleted_at` elsewhere), so the RPC is the only
+-- path that can ever flip it. At this point in the file cliente.estado is
+-- 'inactivo' (set by test 18 above) and tarea.prioridad is null (test 22
+-- above) — so ('estado_cliente','inactivo') is the currently in-use code and
+-- ('estado_cliente','standby') remains unused (never referenced by any
+-- fixture row).
+set local role authenticated;
+set local request.jwt.claims to '{"sub":"11111111-1111-1111-1111-111111111111"}';
+
+select throws_ok(
+  $$update public.catalogo set activo = false where tipo = 'estado_cliente' and codigo = 'inactivo'$$,
+  '42501', null, 'direct UPDATE of catalogo.activo is rejected at the grant layer even for administrador (excluded from the grant list; RPC-only path)');
+
+set local request.jwt.claims to '{"sub":"55555555-5555-5555-5555-555555555555"}';
+
+select throws_ok(
+  $$select public.soft_delete_catalogo('estado_cliente', 'inactivo')$$,
+  '42501', null, 'colaborador cannot call soft_delete_catalogo (admin.eliminar required)');
+
+set local request.jwt.claims to '{"sub":"11111111-1111-1111-1111-111111111111"}';
+
+select throws_ok(
+  $$select public.soft_delete_catalogo('estado_cliente', 'inactivo')$$,
+  '23503', null, 'administrador cannot deactivate a catalogo row referenced by an existing cliente row (CAT5 referential guard)');
+
+select lives_ok(
+  $$select public.soft_delete_catalogo('estado_cliente', 'standby')$$,
+  'administrador CAN deactivate an UNUSED catalogo row via soft_delete_catalogo');
+
+select ok((select not activo from public.catalogo where tipo = 'estado_cliente' and codigo = 'standby'),
+  'soft_delete_catalogo actually set activo = false on the unused row');
+
+reset role;
 
 -- 24: tarea.estado / tarea.origen must NOT be touched by this migration —
 -- they stay CHECK-constrained exactly as platform-foundation shipped them.
