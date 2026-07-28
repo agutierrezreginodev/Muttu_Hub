@@ -18,14 +18,14 @@ pnpm dev
 
 ## Scripts
 
-| Command                | Purpose                                     |
-| ----------------------- | -------------------------------------------- |
-| `pnpm dev`              | Start the dev server                          |
-| `pnpm build`            | Production build                              |
-| `pnpm lint`             | ESLint                                        |
-| `pnpm format:check`     | Prettier check                                |
-| `pnpm typecheck`        | Strict `tsc --noEmit`                         |
-| `pnpm bootstrap:admin`  | Provision the first Administrador (see below) |
+| Command                | Purpose                                       |
+| ---------------------- | --------------------------------------------- |
+| `pnpm dev`             | Start the dev server                          |
+| `pnpm build`           | Production build                              |
+| `pnpm lint`            | ESLint                                        |
+| `pnpm format:check`    | Prettier check                                |
+| `pnpm typecheck`       | Strict `tsc --noEmit`                         |
+| `pnpm bootstrap:admin` | Provision the first Administrador (see below) |
 
 ## Database (Supabase)
 
