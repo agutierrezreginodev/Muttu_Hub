@@ -35,3 +35,31 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+  migration-test-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every migration must have a matching pgTAP test (T2)
+        run: bash scripts/check-migration-tests.sh
+
+  pgtap:
+    runs-on: ubuntu-latest
+    needs: migration-test-coverage
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        run: supabase start
+
+      - name: Run pgTAP suite (supabase test db)
+        run: supabase test db
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop
