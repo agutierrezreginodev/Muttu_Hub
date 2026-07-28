@@ -41,6 +41,8 @@ export const es = {
     confirmPassword: "Confirmar contraseña",
     passwordTooWeak: "Mínimo 8 caracteres, con letras y números.",
     passwordMismatch: "Las contraseñas no coinciden.",
+    confirmingSession: "Confirmando tu acceso…",
+    confirmError: "Este enlace ya no es válido. Pedí uno nuevo.",
   },
   session: {
     idleSignedOut: "Sesión cerrada por inactividad.",
