@@ -18,13 +18,13 @@ pnpm dev
 
 ## Scripts
 
-| Command | Purpose |
-|---|---|
-| `pnpm dev` | Start the dev server |
-| `pnpm build` | Production build |
-| `pnpm lint` | ESLint |
-| `pnpm format:check` | Prettier check |
-| `pnpm typecheck` | Strict `tsc --noEmit` |
+| Command             | Purpose               |
+| ------------------- | --------------------- |
+| `pnpm dev`          | Start the dev server  |
+| `pnpm build`        | Production build      |
+| `pnpm lint`         | ESLint                |
+| `pnpm format:check` | Prettier check        |
+| `pnpm typecheck`    | Strict `tsc --noEmit` |
 
 ## Conventions
 
