@@ -25,6 +25,7 @@ pnpm dev
 | `pnpm lint`            | ESLint                                        |
 | `pnpm format:check`    | Prettier check                                |
 | `pnpm typecheck`       | Strict `tsc --noEmit`                         |
+| `pnpm test`            | Vitest unit/component tests                   |
 | `pnpm bootstrap:admin` | Provision the first Administrador (see below) |
 
 ## Database (Supabase)
@@ -66,7 +67,7 @@ Administrador already exists.
 Built as stacked PR slices per SDD change `platform-foundation`:
 
 1. PR 1 — Scaffold & hygiene
-2. **PR 2 — Database, RLS, seed, pgTAP** (this branch)
-3. PR 3 — Auth & session
+2. PR 2 — Database, RLS, seed, pgTAP
+3. **PR 3 — Auth & session** (this branch)
 4. PR 4 — Admin module
 5. PR 5 — E2E & CI gates
