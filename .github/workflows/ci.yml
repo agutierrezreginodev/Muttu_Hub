@@ -36,6 +36,26 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Vitest (T1) — password schema, idle-logout hook
+        run: pnpm test
+
   migration-test-coverage:
     runs-on: ubuntu-latest
     steps:
