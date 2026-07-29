@@ -11,6 +11,8 @@ interface AppShellProps {
   userEmail: string;
   /** UX only (task 4.1) — hides/shows the Admin link. Never the real gate. */
   canAccessAdmin: boolean;
+  /** UX only (task 6.11) — hides/shows the CRM link. Never the real gate: the actual gate is (app)/crm/layout.tsx's has_permission() RPC plus every RLS policy under that module. */
+  canAccessCrm: boolean;
   children: React.ReactNode;
 }
 
@@ -24,6 +26,7 @@ export function AppShell({
   userNombre,
   userEmail,
   canAccessAdmin,
+  canAccessCrm,
   children,
 }: AppShellProps) {
   useIdleLogout();
@@ -33,6 +36,14 @@ export function AppShell({
       <header className="flex h-16 items-center justify-between border-b px-4">
         <span className="text-base font-semibold">{es.common.appName}</span>
         <nav className="flex items-center gap-2">
+          {canAccessCrm ? (
+            <Link
+              href="/crm"
+              className="flex h-11 min-h-11 items-center rounded-lg px-3 text-base hover:bg-muted"
+            >
+              {es.crm.nav}
+            </Link>
+          ) : null}
           {canAccessAdmin ? (
             <Link
               href="/admin"
