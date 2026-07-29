@@ -99,9 +99,7 @@ test("creates a cliente, adds a contacto, an oportunidad, a compromiso, and a bi
   await page.getByLabel("Nueva entrada").fill("Nota de seguimiento E2E");
   await page.getByRole("button", { name: "Agregar entrada" }).click();
 
-  await expect(
-    page.getByText("Entrada agregada a la bitácora."),
-  ).toBeVisible();
+  await expect(page.getByText("Entrada agregada a la bitácora.")).toBeVisible();
   await expect(page.getByText("Nota de seguimiento E2E")).toBeVisible();
 
   // Spec BIT5 (hard requirement, not a stylistic choice): zero edit/delete
