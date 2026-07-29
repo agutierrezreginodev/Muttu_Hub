@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  catalogoCreateSchema,
+  catalogoUpdateSchema,
   editUserSchema,
   inviteUserSchema,
   roleSchema,
@@ -164,6 +166,106 @@ describe("roleSchema (task 4.7, spec U5)", () => {
           crm: { ...fullGrid.crm, ver: "yes" },
         },
       }).success,
+    ).toBe(false);
+  });
+});
+
+describe("catalogoCreateSchema (task 5.4, spec CAT4)", () => {
+  it("accepts a valid new tipo/codigo pair", () => {
+    expect(
+      catalogoCreateSchema.safeParse({
+        tipo: "nivel_madurez",
+        codigo: "temprano",
+        etiqueta: "Temprano",
+        orden: "1",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an empty tipo", () => {
+    expect(
+      catalogoCreateSchema.safeParse({
+        tipo: "",
+        codigo: "temprano",
+        etiqueta: "Temprano",
+        orden: 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a tipo that is not snake_case (matches the discriminator column convention)", () => {
+    expect(
+      catalogoCreateSchema.safeParse({
+        tipo: "Nivel Madurez",
+        codigo: "temprano",
+        etiqueta: "Temprano",
+        orden: 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an empty codigo", () => {
+    expect(
+      catalogoCreateSchema.safeParse({
+        tipo: "nivel_madurez",
+        codigo: "",
+        etiqueta: "Temprano",
+        orden: 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an empty etiqueta", () => {
+    expect(
+      catalogoCreateSchema.safeParse({
+        tipo: "nivel_madurez",
+        codigo: "temprano",
+        etiqueta: "",
+        orden: 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a negative orden", () => {
+    expect(
+      catalogoCreateSchema.safeParse({
+        tipo: "nivel_madurez",
+        codigo: "temprano",
+        etiqueta: "Temprano",
+        orden: -1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("defaults orden to 0 when omitted", () => {
+    const result = catalogoCreateSchema.safeParse({
+      tipo: "nivel_madurez",
+      codigo: "temprano",
+      etiqueta: "Temprano",
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.orden).toBe(0);
+  });
+});
+
+describe("catalogoUpdateSchema (task 5.4) — tipo/codigo are the immutable natural key, never editable (matches the grant-restricted UPDATE list: etiqueta, orden only)", () => {
+  it("accepts etiqueta + orden only", () => {
+    expect(
+      catalogoUpdateSchema.safeParse({ etiqueta: "Temprano", orden: 2 })
+        .success,
+    ).toBe(true);
+  });
+
+  it("rejects an empty etiqueta", () => {
+    expect(
+      catalogoUpdateSchema.safeParse({ etiqueta: "", orden: 2 }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a negative orden", () => {
+    expect(
+      catalogoUpdateSchema.safeParse({ etiqueta: "Temprano", orden: -1 })
+        .success,
     ).toBe(false);
   });
 });
