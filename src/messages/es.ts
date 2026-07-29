@@ -117,6 +117,30 @@ export const es = {
     eventDesactivacion: "Desactivación",
     eventReactivacion: "Reactivación",
     forbidden: "No tenés acceso a esta sección.",
+    catalogosDescription: "Administrar los códigos de las listas del CRM.",
+    catalogos: {
+      title: "Catálogos",
+      createCatalogo: "Crear código",
+      createCatalogoTitle: "Crear código de catálogo",
+      editCatalogoTitle: "Editar código de catálogo",
+      tipo: "Tipo",
+      tipoHelp:
+        "Identificador de la lista (minúsculas y guion bajo, p. ej. nivel_madurez). Podés usar un tipo existente o crear uno nuevo.",
+      tipoInvalid:
+        "Usá minúsculas, números y guion bajo, empezando con una letra (p. ej. nivel_madurez).",
+      codigo: "Código",
+      etiqueta: "Etiqueta",
+      orden: "Orden",
+      noEntries: "Todavía no hay códigos de catálogo.",
+      createSuccess: "Código de catálogo creado.",
+      updateSuccess: "Código de catálogo actualizado.",
+      deactivateConfirmTitle: "¿Desactivar este código?",
+      deactivateConfirmDescription:
+        "Dejará de estar disponible para elegir en formularios nuevos. El historial que ya lo usa se conserva.",
+      deactivateSuccess: "Código de catálogo desactivado.",
+      deactivateInUseError:
+        "No se puede desactivar: código en uso por un cliente o tarea existente.",
+    },
   },
 } as const;
 

@@ -30,6 +30,11 @@ const sections = [
     title: es.admin.accessLog,
     description: es.admin.accessLogDescription,
   },
+  {
+    href: "/admin/catalogos",
+    title: es.admin.catalogos.title,
+    description: es.admin.catalogosDescription,
+  },
 ];
 
 /**
