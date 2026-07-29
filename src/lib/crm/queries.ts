@@ -154,3 +154,109 @@ export async function getProximoCompromiso(
     vencido: data.vencido,
   };
 }
+
+export interface ContactoListItem {
+  id: number;
+  clienteId: number;
+  nombre: string;
+  cargo: string | null;
+  correo: string | null;
+  telefono: string | null;
+  perfilDecision: string | null;
+  notas: string | null;
+}
+
+/**
+ * List contactos for a cliente (task 7.2, spec CO5). Reads `v_contacto`
+ * (never the base table), which already filters `deleted_at is null` and
+ * relies on the `contacto_select` RLS policy (`private.cliente_visible`) —
+ * a caller who cannot see this `clienteId` gets an empty result, not an
+ * error, same convention as `listClientes`.
+ */
+export async function listContactos(
+  clienteId: number,
+): Promise<ContactoListItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("v_contacto")
+    .select(
+      "id, cliente_id, nombre, cargo, correo, telefono, perfil_decision, notas",
+    )
+    .eq("cliente_id", clienteId)
+    .order("nombre");
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    clienteId: row.cliente_id,
+    nombre: row.nombre,
+    cargo: row.cargo,
+    correo: row.correo,
+    telefono: row.telefono,
+    perfilDecision: row.perfil_decision,
+    notas: row.notas,
+  }));
+}
+
+export interface OportunidadListItem {
+  id: number;
+  clienteId: number;
+  nombre: string;
+  problemaDetectado: string | null;
+  solucionPropuesta: string | null;
+  proyectosAnteriores: string | null;
+  valorEstimadoCop: number | null;
+  estado: string | null;
+  fechaUltimaGestion: string | null;
+  /** Full set of catalog codes currently attached via `oportunidad_servicio` (design Decision 6). */
+  serviciosInteres: string[];
+}
+
+/**
+ * List oportunidades for a cliente (task 7.2, spec OP1-OP5), including each
+ * row's `servicios_interes` set from the `oportunidad_servicio` junction.
+ * Two independent reads (view + junction), joined in memory — `v_oportunidad`
+ * has no servicios column (design: the junction is a separate table, RPC-
+ * only write path). Both reads are RLS-gated the same way `listContactos`
+ * is: an invisible `clienteId` yields empty arrays, never an error.
+ */
+export async function listOportunidades(
+  clienteId: number,
+): Promise<OportunidadListItem[]> {
+  const supabase = await createClient();
+  const [{ data: oportunidades }, { data: servicios }] = await Promise.all([
+    supabase
+      .from("v_oportunidad")
+      .select(
+        "id, cliente_id, nombre, problema_detectado, solucion_propuesta, proyectos_anteriores, valor_estimado_cop, estado, fecha_ultima_gestion",
+      )
+      .eq("cliente_id", clienteId)
+      .order("nombre"),
+    supabase
+      .from("oportunidad_servicio")
+      .select("oportunidad_id, servicio_codigo")
+      .eq("cliente_id", clienteId),
+  ]);
+
+  const serviciosByOportunidad = new Map<number, string[]>();
+  for (const row of servicios ?? []) {
+    const existing = serviciosByOportunidad.get(row.oportunidad_id);
+    if (existing) {
+      existing.push(row.servicio_codigo);
+    } else {
+      serviciosByOportunidad.set(row.oportunidad_id, [row.servicio_codigo]);
+    }
+  }
+
+  return (oportunidades ?? []).map((row) => ({
+    id: row.id,
+    clienteId: row.cliente_id,
+    nombre: row.nombre,
+    problemaDetectado: row.problema_detectado,
+    solucionPropuesta: row.solucion_propuesta,
+    proyectosAnteriores: row.proyectos_anteriores,
+    valorEstimadoCop: row.valor_estimado_cop,
+    estado: row.estado,
+    fechaUltimaGestion: row.fecha_ultima_gestion,
+    serviciosInteres: serviciosByOportunidad.get(row.id) ?? [],
+  }));
+}

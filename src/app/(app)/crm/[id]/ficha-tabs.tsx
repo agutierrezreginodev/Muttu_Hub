@@ -22,13 +22,18 @@ interface FichaTab {
  * component (the kit ships none). Each tab is a real route, so it is
  * deep-linkable and gets its own server-side fetch (no over-fetching).
  *
- * This PR (6) ships ONLY the General tab — Contactos/Oportunidades (PR7)
- * and Compromisos/Bitácora/Tareas relacionadas (PR8) append their entries
- * here as their route segments land, never as a dead link to a route that
- * does not exist yet (spec FC8 — Documentos MUST NOT be built or stubbed;
- * the same discipline applies to any not-yet-shipped CRM tab).
+ * PR6 shipped ONLY the General tab; PR7 appends Contactos/Oportunidades
+ * here as their route segments land. Compromisos/Bitácora/Tareas
+ * relacionadas (PR8) append their entries the same way, never as a dead
+ * link to a route that does not exist yet (spec FC8 — Documentos MUST NOT
+ * be built or stubbed; the same discipline applies to any not-yet-shipped
+ * CRM tab).
  */
-const TABS: FichaTab[] = [{ segment: null, label: es.crm.tabs.general }];
+const TABS: FichaTab[] = [
+  { segment: null, label: es.crm.tabs.general },
+  { segment: "contactos", label: es.crm.tabs.contactos },
+  { segment: "oportunidades", label: es.crm.tabs.oportunidades },
+];
 
 export function FichaTabs({ clienteId }: FichaTabsProps) {
   const pathname = usePathname();

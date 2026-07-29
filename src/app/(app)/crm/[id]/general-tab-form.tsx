@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { es } from "@/messages/es";
 import { updateClienteGeneralAction } from "@/lib/crm/actions";
 import type { ClienteDetail } from "@/lib/crm/queries";
-import type { CatalogoOption } from "@/lib/crm/catalogos";
+import type { CatalogoOption } from "@/lib/crm/catalogo-options";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

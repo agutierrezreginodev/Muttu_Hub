@@ -1,15 +1,18 @@
 import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  activeCatalogoOptions,
+  resolveCatalogoLabel,
+  type CatalogoOption,
+  type CatalogoOptionsMap,
+} from "@/lib/crm/catalogo-options";
 
-export interface CatalogoOption {
-  codigo: string;
-  etiqueta: string;
-  orden: number;
-  activo: boolean;
-}
-
-export type CatalogoOptionsMap = Map<string, CatalogoOption[]>;
+export type {
+  CatalogoOption,
+  CatalogoOptionsMap,
+} from "@/lib/crm/catalogo-options";
+export { activeCatalogoOptions, resolveCatalogoLabel };
 
 /**
  * All `catalogo` rows (active AND inactive), grouped by `tipo` (task 6.2).
@@ -21,6 +24,13 @@ export type CatalogoOptionsMap = Map<string, CatalogoOption[]>;
  * oportunidad row stores, so history stays readable (design: "Forms offer
  * active codes only; display resolves stored codes (including deactivated
  * ones)"). Use `activeCatalogoOptions()` to build a picker's option list.
+ *
+ * SERVER-ONLY (imports `createClient`, which uses `next/headers`). The pure
+ * `activeCatalogoOptions`/`resolveCatalogoLabel` helpers and their types are
+ * re-exported above for convenience in Server Components, but a `"use
+ * client"` file MUST import them from `@/lib/crm/catalogo-options` directly
+ * instead of from this file — see that file's doc comment for the exact bug
+ * this split fixes (PR7 apply).
  */
 export const getCatalogoOptions = cache(
   async (): Promise<CatalogoOptionsMap> => {
@@ -50,30 +60,3 @@ export const getCatalogoOptions = cache(
     return map;
   },
 );
-
-/** Active-only options for a given `tipo` — what a create/edit picker must offer (deactivated codes never appear as a NEW choice). */
-export function activeCatalogoOptions(
-  map: CatalogoOptionsMap,
-  tipo: string,
-): CatalogoOption[] {
-  return (map.get(tipo) ?? []).filter((option) => option.activo);
-}
-
-/**
- * Resolves a stored `codigo` to its display `etiqueta`, INCLUDING
- * deactivated codes (mirrors `resolveUsuarioLabel`'s null-safe fallback).
- * Falls back to the raw `codigo` — never "—" — when the pair is unknown to
- * the map (e.g. a race with a very recent write); "—" is reserved for the
- * genuinely-empty case (`codigo` is null).
- */
-export function resolveCatalogoLabel(
-  map: CatalogoOptionsMap,
-  tipo: string,
-  codigo: string | null,
-): string {
-  if (!codigo) {
-    return "—";
-  }
-  const option = (map.get(tipo) ?? []).find((entry) => entry.codigo === codigo);
-  return option ? option.etiqueta : codigo;
-}

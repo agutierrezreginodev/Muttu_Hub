@@ -54,3 +54,60 @@ export const clienteGeneralSchema = z.object({
   riesgosBarreras: optionalTrimmed(z.string()),
 });
 export type ClienteGeneralInput = z.infer<typeof clienteGeneralSchema>;
+
+/**
+ * Task 7.3 (spec CO1-CO3): the ficha's Contactos tab. `correo` is validated
+ * as a real email shape when present (a friendlier gate than the DB, which
+ * stores it as plain `text`); `perfilDecision` is a catalog code, validated
+ * only as a non-empty string here — the FK is the real enforcement, same
+ * posture as every other catalog-backed field in `clienteGeneralSchema`.
+ */
+export const contactoSchema = z.object({
+  nombre: z.string().trim().min(1, { message: es.common.requiredField }),
+  cargo: optionalTrimmed(z.string()),
+  correo: optionalTrimmed(
+    z.string().email({ message: es.crm.contactos.correoInvalid }),
+  ),
+  telefono: optionalTrimmed(z.string()),
+  perfilDecision: optionalTrimmed(z.string()),
+  notas: optionalTrimmed(z.string()),
+});
+export type ContactoInput = z.infer<typeof contactoSchema>;
+
+/**
+ * Normalizes an optional numeric field submitted as a string (HTML number
+ * inputs always send a string, never `undefined`): trims, empty -> absent,
+ * otherwise coerces to a number. Mirrors `optionalTrimmed`'s intent for the
+ * one numeric field this tab has (`valorEstimadoCop`).
+ */
+function optionalNonNegativeNumber() {
+  return z.preprocess((value) => {
+    if (typeof value !== "string") {
+      return value;
+    }
+    const trimmed = value.trim();
+    return trimmed === "" ? undefined : Number(trimmed);
+  }, z.number().nonnegative().optional());
+}
+
+/**
+ * Task 7.3 (spec OP1-OP4): the ficha's Oportunidades tab. `estado` is a
+ * catalog code (FK-enforced in Postgres, `not null default 'abierta'` per
+ * design's DDL — this schema still treats it as optional so the DB default
+ * applies when omitted, same posture as `clienteCreateSchema.estado`).
+ * `serviciosInteres` is the FULL set of catalog codes the multi-select
+ * currently holds — every save sends this complete array to
+ * `set_oportunidad_servicios` (set-replace semantics), never an incremental
+ * add/remove diff (design Decision 6, spec-required behavior).
+ */
+export const oportunidadSchema = z.object({
+  nombre: z.string().trim().min(1, { message: es.common.requiredField }),
+  problemaDetectado: optionalTrimmed(z.string()),
+  solucionPropuesta: optionalTrimmed(z.string()),
+  proyectosAnteriores: optionalTrimmed(z.string()),
+  valorEstimadoCop: optionalNonNegativeNumber(),
+  estado: optionalTrimmed(z.string()),
+  fechaUltimaGestion: optionalTrimmed(z.string().date()),
+  serviciosInteres: z.array(z.string().trim().min(1)).default([]),
+});
+export type OportunidadInput = z.infer<typeof oportunidadSchema>;
