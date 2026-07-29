@@ -5,6 +5,8 @@ import {
   clienteGeneralSchema,
   contactoSchema,
   oportunidadSchema,
+  bitacoraSchema,
+  compromisoSchema,
 } from "@/lib/crm/schemas";
 
 describe("clienteCreateSchema (task 6.4, task 6.7)", () => {
@@ -187,5 +189,66 @@ describe("oportunidadSchema (task 7.3, spec OP1-OP4)", () => {
     if (result.success) {
       expect(result.data.serviciosInteres).toEqual([]);
     }
+  });
+});
+
+describe("bitacoraSchema (task 8.3, spec BIT1/BIT4 — append-only entry)", () => {
+  it("accepts a non-empty texto", () => {
+    expect(
+      bitacoraSchema.safeParse({ texto: "Llamada de seguimiento" }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an empty texto", () => {
+    expect(bitacoraSchema.safeParse({ texto: "" }).success).toBe(false);
+  });
+
+  it("rejects a whitespace-only texto (mirrors the DB's own non-blank CHECK)", () => {
+    expect(bitacoraSchema.safeParse({ texto: "   " }).success).toBe(false);
+  });
+
+  it("trims surrounding whitespace", () => {
+    const result = bitacoraSchema.safeParse({ texto: "  Nota  " });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.texto).toBe("Nota");
+    }
+  });
+
+  it("never accepts an autorId field — it does not exist on this schema at all", () => {
+    // The schema's own shape is the guard: autor_id is never client-supplied
+    // (spec BIT4) — there is no field here for a caller to even attempt it.
+    expect(Object.keys(bitacoraSchema.shape)).toEqual(["texto"]);
+  });
+});
+
+describe("compromisoSchema (task 8.3, spec FC9 / design Decision 9)", () => {
+  it("accepts titulo only (fechaLimite/prioridad are optional)", () => {
+    expect(
+      compromisoSchema.safeParse({ titulo: "Enviar propuesta" }).success,
+    ).toBe(true);
+  });
+
+  it("accepts titulo + fechaLimite + prioridad", () => {
+    expect(
+      compromisoSchema.safeParse({
+        titulo: "Enviar propuesta",
+        fechaLimite: "2026-08-15",
+        prioridad: "Alta",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects an empty titulo", () => {
+    expect(compromisoSchema.safeParse({ titulo: "" }).success).toBe(false);
+  });
+
+  it("rejects a malformed fechaLimite (not ISO date)", () => {
+    expect(
+      compromisoSchema.safeParse({
+        titulo: "Enviar propuesta",
+        fechaLimite: "15/08/2026",
+      }).success,
+    ).toBe(false);
   });
 });

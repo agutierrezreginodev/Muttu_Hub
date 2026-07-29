@@ -104,6 +104,19 @@ export default async function globalSetup(): Promise<void> {
       `${APP_URL}/admin/usuarios`,
       `${APP_URL}/auth/callback`,
       `${APP_URL}/actualizar-clave`,
+      // PR7 flagged this gap: no /crm/* route was warmed, so crm-flow.spec.ts
+      // paid the FULL cold-compile cost for every one of its own tab
+      // segments. Next.js dev mode compiles per ROUTE FILE, not per param
+      // value, so hitting `/crm/1/*` here (a placeholder id, response status
+      // ignored) still warms the `/crm/[id]/*` bundles PR6-PR8 shipped,
+      // ahead of the real interactive navigation.
+      `${APP_URL}/crm`,
+      `${APP_URL}/crm/1`,
+      `${APP_URL}/crm/1/contactos`,
+      `${APP_URL}/crm/1/oportunidades`,
+      `${APP_URL}/crm/1/compromisos`,
+      `${APP_URL}/crm/1/bitacora`,
+      `${APP_URL}/crm/1/tareas`,
       `${IDLE_APP_URL}/login`,
       `${IDLE_APP_URL}/`,
     ].map(warmUpRoute),
