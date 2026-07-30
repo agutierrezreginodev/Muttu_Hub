@@ -278,6 +278,32 @@ describe("POST /crm/[id]/documentos/upload (task 6.1/6.2, design Decision 6)", (
     expect(upload).not.toHaveBeenCalled();
   });
 
+  it("tells the user the category was denied when the parent insert is rejected, and uploads nothing", async () => {
+    // `documento_insert`'s WITH CHECK is what denies an ungranted category for
+    // a NEW document, so this insert failure is the only place that denial
+    // becomes a user-visible message. Without this the caller would get the
+    // generic error and have no idea the category was the problem.
+    const { upload } = stubSupabase({ insertError: { message: "42501" } });
+
+    const response = await POST(
+      makeRequest({
+        file: makeFile(),
+        nombre: "Acta",
+        categoria: "secretos",
+        tags: "[]",
+      }),
+      { params },
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "No tenés acceso a esa categoría.",
+    });
+    // The bytes must not land for a document row that was never created.
+    expect(upload).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
   it("does not record a version when the bytes failed to upload", async () => {
     const { rpc } = stubSupabase({
       currentVersion: 1,
