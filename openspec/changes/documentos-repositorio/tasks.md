@@ -243,9 +243,24 @@ changed lines). PRs stack in order; each is independently reviewable.
 
 ## PR7 — Admin: category-grant editor
 
-- [ ] 7.1 RED: `category-grants-editor.test.tsx` + admin action tests — role × category grid
+> APPLIED: the grid holds cells in local state seeded from props and REVERTS a
+> cell when the write is rejected — leaving it ticked would show an admin a
+> permission that was never written, the one failure mode that actively misleads
+> on a permissions screen.
+>
+> Two deliberate scope calls. Roles are listed regardless of `rol.activo` (marked
+> when inactive) because `private.categoria_visible` does NOT gate on
+> `rol.activo`, so an inactive role's grants are still live and hiding them would
+> hide effective access. Columns cover EVERY `categoria_documento` code rather
+> than only active ones, so a grant on a deactivated code stays visible and
+> revocable instead of vanishing from the screen.
+>
+> `RolOption` moved into `directory-options.ts` (third instance of that split) so
+> the client grid does not reach it through the server-only barrel.
+
+- [x] 7.1 RED: `category-grants-editor.test.tsx` + admin action tests — role × category grid
       toggles write/remove `documento_categoria_permiso`; admin-gated.
-- [ ] 7.2 GREEN: admin screen + server actions (mirror `permissions-grid-editor.tsx` /
+- [x] 7.2 GREEN: admin screen + server actions (mirror `permissions-grid-editor.tsx` /
       admin actions) to grant/revoke categories per role; copy in `es.ts`.
 
 ## PR8 — E2E: full flow against real local Supabase + Storage
