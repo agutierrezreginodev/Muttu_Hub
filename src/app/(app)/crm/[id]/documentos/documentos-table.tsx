@@ -21,38 +21,22 @@ import {
   resolveUsuarioLabel,
   type UsuarioDirectory,
 } from "@/lib/admin/directory-options";
-import type { DocumentoListItem } from "@/lib/documentos/queries";
+import { formatBytes } from "@/lib/documentos/format";
+import type {
+  DocumentoListItem,
+  DocumentoVersionListItem,
+} from "@/lib/documentos/queries";
 import { EditDocumentoDialog } from "./edit-documento-dialog";
 import { DeleteDocumentoDialog } from "./delete-documento-dialog";
+import { DocumentoVersionDialog } from "./documento-version-dialog";
 
 interface DocumentosTableProps {
   rows: DocumentoListItem[];
   clienteId: number;
   catalogoOptions: CatalogoOptionsMap;
   directory: UsuarioDirectory;
-}
-
-/**
- * Formats a byte count for display (task 5a.4). Not a spec-mandated unit —
- * plain KB/MB abbreviations, same "not natural-language copy" treatment as
- * `toLocaleString("es-CO")` currency formatting elsewhere in this codebase
- * (no `es.ts` entry needed for a numeric unit suffix). Returns the em dash
- * for a null byte count (a document whose current version, in principle,
- * could not be resolved by `v_documento`'s lateral join).
- */
-function formatBytes(bytes: number | null): string {
-  if (bytes == null) {
-    return "—";
-  }
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  }
-  const kb = bytes / 1024;
-  if (kb < 1024) {
-    return `${kb.toLocaleString("es-CO", { maximumFractionDigits: 1 })} KB`;
-  }
-  const mb = kb / 1024;
-  return `${mb.toLocaleString("es-CO", { maximumFractionDigits: 1 })} MB`;
+  /** Every version for the cliente, keyed by `documento_id` — one query for the whole tab, not one per row. */
+  versionesByDocumento: Map<number, DocumentoVersionListItem[]>;
 }
 
 /**
@@ -67,11 +51,12 @@ function formatBytes(bytes: number | null): string {
  * barrels, or a `"use client"` file pulls `next/headers` into the client
  * bundle (the exact PR7 bug those two split files document).
  *
- * PR5b adds the per-row actions cell (`EditDocumentoDialog` +
- * `DeleteDocumentoDialog`), so this component owns dialog composition but
- * still holds no data-fetching or mutation logic of its own — the dialogs
- * call the Server Actions directly, the same way `OportunidadesTable` hosts
- * its own row dialogs.
+ * PR5b adds the per-row actions cell (version history, edit, delete), so this
+ * component owns dialog composition but still holds no data-fetching of its
+ * own — the dialogs call their Server Actions (or, for byte transport, the
+ * upload route) directly, the same way `OportunidadesTable` hosts its own row
+ * dialogs. `versionesByDocumento` arrives pre-fetched for the whole tab, so
+ * opening a history costs no round trip.
  *
  * Per-row selection state (checkboxes) is local to this component; no
  * consumer exists yet (the zip-export button that reads it lands in PR6
@@ -86,6 +71,7 @@ export function DocumentosTable({
   clienteId,
   catalogoOptions,
   directory,
+  versionesByDocumento,
 }: DocumentosTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   // Derived here rather than taken as a prop: the full map is already on hand,
@@ -176,6 +162,13 @@ export function DocumentosTable({
             </TableCell>
             <TableCell className="text-right">
               <div className="flex flex-wrap justify-end gap-2">
+                <DocumentoVersionDialog
+                  clienteId={clienteId}
+                  documentoId={row.id}
+                  nombre={row.nombre}
+                  versiones={versionesByDocumento.get(row.id) ?? []}
+                  directory={directory}
+                />
                 <EditDocumentoDialog
                   clienteId={clienteId}
                   documento={row}

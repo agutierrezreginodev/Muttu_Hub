@@ -73,8 +73,9 @@ describe("postDocumentoUpload (task 5b.1/5b.2, design Decision 6: byte transport
       },
     });
 
-    const body = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]
-      .body as FormData;
+    const body = (
+      fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    )[1].body as FormData;
     expect((body.get("file") as File).name).toBe("acta.pdf");
     expect(body.get("nombre")).toBe("Acta");
     expect(body.get("categoria")).toBe("contratos");
@@ -93,8 +94,9 @@ describe("postDocumentoUpload (task 5b.1/5b.2, design Decision 6: byte transport
       documentoId: 42,
     });
 
-    const body = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1]
-      .body as FormData;
+    const body = (
+      fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+    )[1].body as FormData;
     expect(body.get("documentoId")).toBe("42");
     expect((body.get("file") as File).name).toBe("acta.pdf");
     // Metadata belongs to the parent document and is never re-sent, so a new

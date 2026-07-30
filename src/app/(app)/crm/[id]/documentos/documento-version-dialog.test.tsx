@@ -4,8 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const postDocumentoUploadMock = vi.fn();
 vi.mock("@/lib/documentos/upload-client", () => ({
-  postDocumentoUpload: (...args: unknown[]) =>
-    postDocumentoUploadMock(...args),
+  postDocumentoUpload: (...args: unknown[]) => postDocumentoUploadMock(...args),
 }));
 
 const routerRefreshMock = vi.fn();
@@ -96,9 +95,12 @@ describe("DocumentoVersionDialog (task 5b.1/5b.2, spec document-versioning 'Vers
       screen.getByRole("button", { name: "Historial de versiones" }),
     );
 
+    // Size, mime, uploader and timestamp render as one metadata line, so each
+    // is matched as a substring of it rather than as its own exact text node.
     const row = screen.getAllByRole("listitem")[0];
     expect(within(row).getByText(/2 KB/)).toBeInTheDocument();
-    expect(within(row).getByText("Ana Gómez")).toBeInTheDocument();
+    expect(within(row).getByText(/Ana Gómez/)).toBeInTheDocument();
+    expect(within(row).getByText(/application\/pdf/)).toBeInTheDocument();
   });
 
   it("links each historic version to its OWN version, never to the current one", async () => {

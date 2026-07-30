@@ -4,8 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const postDocumentoUploadMock = vi.fn();
 vi.mock("@/lib/documentos/upload-client", () => ({
-  postDocumentoUpload: (...args: unknown[]) =>
-    postDocumentoUploadMock(...args),
+  postDocumentoUpload: (...args: unknown[]) => postDocumentoUploadMock(...args),
 }));
 
 const routerRefreshMock = vi.fn();

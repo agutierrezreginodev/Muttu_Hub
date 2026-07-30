@@ -87,19 +87,19 @@ export interface DocumentoVersionListItem {
  * so an invisible `documentoId` yields an empty array, never an error, same
  * trust-RLS convention as `listDocumentos`.
  */
-export async function listVersiones(
-  documentoId: number,
-): Promise<DocumentoVersionListItem[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("documento_version")
-    .select(
-      "id, documento_id, version, storage_bucket, storage_path, original_filename, size_bytes, mime_type, uploaded_by, created_at",
-    )
-    .eq("documento_id", documentoId)
-    .order("version", { ascending: false });
-
-  return (data ?? []).map((row) => ({
+function mapVersionRow(row: {
+  id: number;
+  documento_id: number;
+  version: number;
+  storage_bucket: string;
+  storage_path: string;
+  original_filename: string;
+  size_bytes: number;
+  mime_type: string;
+  uploaded_by: string | null;
+  created_at: string;
+}): DocumentoVersionListItem {
+  return {
     id: row.id,
     documentoId: row.documento_id,
     version: row.version,
@@ -110,5 +110,61 @@ export async function listVersiones(
     mimeType: row.mime_type,
     uploadedBy: row.uploaded_by,
     createdAt: row.created_at,
-  }));
+  };
+}
+
+const VERSION_COLUMNS =
+  "id, documento_id, version, storage_bucket, storage_path, original_filename, size_bytes, mime_type, uploaded_by, created_at";
+
+export async function listVersiones(
+  documentoId: number,
+): Promise<DocumentoVersionListItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("documento_version")
+    .select(VERSION_COLUMNS)
+    .eq("documento_id", documentoId)
+    .order("version", { ascending: false });
+
+  return (data ?? []).map(mapVersionRow);
+}
+
+/**
+ * Every version of every visible document for a cliente, grouped by
+ * `documento_id`, newest-first within each group (task 5b.2).
+ *
+ * The documentos tab renders one version-history dialog PER ROW. Calling
+ * `listVersiones` once per row would fire one round trip per document on
+ * every page load — for histories most users never open. `documento_version`
+ * carries a DENORMALIZED `cliente_id` (the column design added for exactly
+ * this kind of direct filtering), so one query covers the whole tab and the
+ * grouping happens in memory.
+ *
+ * Ordering is done at the database, not here, so the dialog can render the
+ * array as-is (spec document-versioning "History lists all versions
+ * newest-first"). Same trust-RLS posture as `listVersiones`: a caller who
+ * cannot see a document simply gets no entry for it, never an error.
+ */
+export async function listVersionesByCliente(
+  clienteId: number,
+): Promise<Map<number, DocumentoVersionListItem[]>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("documento_version")
+    .select(VERSION_COLUMNS)
+    .eq("cliente_id", clienteId)
+    .order("version", { ascending: false });
+
+  const grouped = new Map<number, DocumentoVersionListItem[]>();
+  for (const row of data ?? []) {
+    const version = mapVersionRow(row);
+    const existing = grouped.get(version.documentoId);
+    if (existing) {
+      existing.push(version);
+    } else {
+      grouped.set(version.documentoId, [version]);
+    }
+  }
+
+  return grouped;
 }
