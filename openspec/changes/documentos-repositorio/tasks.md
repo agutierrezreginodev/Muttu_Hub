@@ -8,18 +8,21 @@ changed lines). PRs stack in order; each is independently reviewable.
 
 ## PR1 — DB: category-permission foundation (`documentos_categoria_permiso`)
 
-- [ ] 1.1 RED: write `supabase/tests/documentos_categoria_permiso_rls.sql` — `plan(n)`;
+- [x] 1.1 RED: write `supabase/tests/documentos_categoria_permiso_rls.sql` — `plan(n)`;
       fixtures (roles/users); assert `categoria_visible` true with a grant, false without,
       fail-closed for no `auth.uid()` and for an inactive user; grant-table FK rejects an
       unlisted category (`23503`); admin-only INSERT/DELETE (`42501` for non-admin);
       SELECT readable by authenticated.
-- [ ] 1.2 GREEN: create `supabase/migrations/<ts>_documentos_categoria_permiso.sql` —
+- [x] 1.2 GREEN: create `supabase/migrations/<ts>_documentos_categoria_permiso.sql` —
       `documento_categoria_permiso` table (PK `(rol_id, categoria)`, composite FK to
       `catalogo`), `private.categoria_visible(text)` (mirror `has_permission`: STABLE,
       SECURITY DEFINER, `search_path=''`, wrapped call sites), RLS enable+force, grants
       (SELECT authenticated + service_role; INSERT/DELETE via `admin.editar` policy),
       revoke/grant EXECUTE on the resolver.
-- [ ] 1.3 Run pgTAP → all green. Verify `check-migration-tests.sh` passes for this file.
+- [x] 1.3 (partial — CI-deferred) `check-migration-tests.sh` verified passing locally for
+      this file; pgTAP execution itself requires the `supabase` CLI, not installed in this
+      environment — CI (`supabase/setup-cli@v1` + `supabase test db`) runs the RED file
+      above against the migration at PR time and is the actual gate.
 
 ## PR2 — DB: documento + versioning core (`documentos_repositorio`)
 
