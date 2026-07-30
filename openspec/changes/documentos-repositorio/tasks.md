@@ -39,7 +39,7 @@ changed lines). PRs stack in order; each is independently reviewable.
       SELECT/INSERT/UPDATE matrix (cliente_visible × `documentos.<verb>` × category) across
       Admin/Gerencia/Coordinador/Colaborador; recategorize gated on old (USING) + new
       (WITH CHECK); no-direct-write-grant on `documento_version`, `unique(documento_id,
-      version)` collision; denormalized `cliente_id` composite-FK anti-drift;
+    version)` collision; denormalized `cliente_id` composite-FK anti-drift;
       soft-delete-parent hides versions; CAT5 rejects an in-use `categoria_documento`
       code; `v_documento` is `security_invoker` and reports the latest version.
       (`add_documento_version`/`soft_delete_documento` RPC assertions moved to PR2b's
@@ -118,7 +118,7 @@ changed lines). PRs stack in order; each is independently reviewable.
       `deleteDocumentoAction` do permission pre-check (`assertDocumentosPermission`) → zod →
       write/RPC → `revalidatePath`, mocked. Established the actions.test.ts mocking
       pattern for this codebase (mocks `createClient`'s `rpc()`/`.from()` directly + `next/
-      cache`'s `revalidatePath`) — no prior `actions.ts` was unit-tested directly before
+    cache`'s `revalidatePath`) — no prior `actions.ts` was unit-tested directly before
       this (every existing `*-dialog.test.tsx` only mocks the action function one layer up).
 - [x] 4.7 GREEN: `src/lib/documentos/actions.ts` — mirror `src/lib/crm/actions.ts`
       (`assertDocumentosPermission('documentos', accion)`, editar/eliminar paths). Only
@@ -129,16 +129,30 @@ changed lines). PRs stack in order; each is independently reviewable.
 
 ## PR5a — UI: 7th tab + list + FC8 reversal
 
-- [ ] 5a.1 RED: rewrite `src/app/(app)/crm/[id]/ficha-tabs.test.tsx` — assert **7** links,
+> **Size note (PR5a):** 458 changed lines across the RED (184) and GREEN (274)
+> commits — over the 400-line budget, in line with PR2's and PR4's disclosed
+> overage. Not split further: the tab entry, the route it points at, and the
+> table it renders are one deliverable (splitting them would land a dead tab
+> link, the exact thing design Decision 9 forbids), and `directory-options.ts`
+> is a prerequisite of the client table in the same slice.
+
+- [x] 5a.1 RED: rewrite `src/app/(app)/crm/[id]/ficha-tabs.test.tsx` — assert **7** links,
       the 7-label ordered set incl. "Documentos", and a `/documentos` link EXISTS; DELETE
       the "never renders Documentos" / "never renders /documentos link" assertions.
-- [ ] 5a.2 GREEN: `ficha-tabs.tsx` — append the Documentos `TABS` entry; rewrite the
+- [x] 5a.2 GREEN: `ficha-tabs.tsx` — append the Documentos `TABS` entry; rewrite the
       forbidding doc-comment to describe the now-present 7th tab.
-- [ ] 5a.3 RED: `documentos-table.test.tsx` — renders rows from `v_documento`, empty state,
+- [x] 5a.3 RED: `documentos-table.test.tsx` — renders rows from `v_documento`, empty state,
       resolves category label via catalog, multi-select checkboxes toggle selection.
-- [ ] 5a.4 GREEN: `crm/[id]/documentos/page.tsx` (server: `Promise.all` list + catalog
+- [x] 5a.4 GREEN: `crm/[id]/documentos/page.tsx` (server: `Promise.all` list + catalog
       options) → `documentos-table.tsx` (client, presentational, mirrors
       `oportunidades-table.tsx`), with per-row download link + selection state.
+      Required a client-safe split of `resolveUsuarioLabel` + its types out of
+      `src/lib/admin/directory.ts` into `src/lib/admin/directory-options.ts` (that
+      barrel imports the server-only supabase client) — the same split
+      `src/lib/crm/catalogo-options.ts` already documents. `formatBytes` lives in
+      the table (numeric unit suffix, not natural-language copy). The per-row
+      download link targets PR6's route shape and 404s until 6.3 lands — disclosed
+      in the component's doc comment.
 
 ## PR5b — UI: upload + version history + edit/delete dialogs
 
