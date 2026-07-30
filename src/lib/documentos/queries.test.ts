@@ -1,7 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 import { createClient } from "@/lib/supabase/server";
-import { listDocumentos, listVersiones } from "@/lib/documentos/queries";
+import {
+  listDocumentos,
+  listVersiones,
+  listVersionesByCliente,
+} from "@/lib/documentos/queries";
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(),
@@ -165,5 +169,89 @@ describe("listVersiones (task 4.3/4.4, spec document-versioning: Version history
     mockedCreateClient.mockResolvedValue({ from: vi.fn(() => builder) } as any);
 
     await expect(listVersiones(42)).resolves.toEqual([]);
+  });
+});
+
+/**
+ * `listVersionesByCliente` exists specifically to avoid an N+1: the documentos
+ * tab renders one version-history dialog PER ROW, and calling `listVersiones`
+ * once per document would fire one round trip per document on every page load
+ * (for histories most users never open). `documento_version` carries a
+ * DENORMALIZED `cliente_id` — the exact column the design added — so every
+ * version for the cliente comes back in ONE query and is grouped in memory.
+ */
+describe("listVersionesByCliente (task 5b.2, one query instead of N)", () => {
+  beforeEach(() => {
+    mockedCreateClient.mockReset();
+  });
+
+  function versionRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 10,
+      documento_id: 42,
+      version: 2,
+      storage_bucket: "documentos",
+      storage_path: "701/42/2/acta.pdf",
+      original_filename: "acta.pdf",
+      size_bytes: 2048,
+      mime_type: "application/pdf",
+      uploaded_by: "user-1",
+      created_at: "2026-07-01T00:00:00Z",
+      ...overrides,
+    };
+  }
+
+  it("issues exactly ONE query, filtered on the denormalized cliente_id", async () => {
+    const builder = createQueryBuilder({ data: [], error: null });
+    const from = vi.fn(() => builder);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockedCreateClient.mockResolvedValue({ from } as any);
+
+    await listVersionesByCliente(701);
+
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(from).toHaveBeenCalledWith("documento_version");
+    expect(builder.eq).toHaveBeenCalledWith("cliente_id", 701);
+  });
+
+  it("groups versions by documento_id, keeping newest-first within each group", async () => {
+    const builder = createQueryBuilder({
+      data: [
+        versionRow({ id: 11, documento_id: 42, version: 2 }),
+        versionRow({ id: 10, documento_id: 42, version: 1 }),
+        versionRow({ id: 20, documento_id: 43, version: 1 }),
+      ],
+      error: null,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockedCreateClient.mockResolvedValue({ from: vi.fn(() => builder) } as any);
+
+    const result = await listVersionesByCliente(701);
+
+    expect(result.get(42)?.map((v) => v.version)).toEqual([2, 1]);
+    expect(result.get(43)?.map((v) => v.version)).toEqual([1]);
+    expect(result.get(42)?.[0].originalFilename).toBe("acta.pdf");
+  });
+
+  it("orders newest-first at the database, not in memory", async () => {
+    const builder = createQueryBuilder({ data: [], error: null });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockedCreateClient.mockResolvedValue({ from: vi.fn(() => builder) } as any);
+
+    await listVersionesByCliente(701);
+
+    expect(builder.order).toHaveBeenCalledWith("version", {
+      ascending: false,
+    });
+  });
+
+  it("trust-RLS: a denied SELECT yields an empty map, never throws", async () => {
+    const builder = createQueryBuilder({ data: null, error: null });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockedCreateClient.mockResolvedValue({ from: vi.fn(() => builder) } as any);
+
+    const result = await listVersionesByCliente(701);
+
+    expect(result.size).toBe(0);
   });
 });
