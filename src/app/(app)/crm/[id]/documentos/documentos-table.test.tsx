@@ -1,5 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+
+// The per-row dialogs are real components here (only their Server Actions are
+// mocked), so the table's wiring is what is under test — not a stub of it.
+vi.mock("@/lib/documentos/actions", () => ({
+  updateDocumentoAction: vi.fn(),
+  deleteDocumentoAction: vi.fn(),
+}));
+
+vi.mock("@/components/ui/toast", () => ({
+  toast: { add: vi.fn() },
+}));
 
 import { DocumentosTable } from "./documentos-table";
 import type { DocumentoListItem } from "@/lib/documentos/queries";
@@ -115,6 +126,23 @@ describe("DocumentosTable (task 5a.3/5a.4, spec document-library)", () => {
 
     expect(firstCheckbox).toBeChecked();
     expect(secondCheckbox).not.toBeChecked();
+  });
+
+  it("renders the edit and delete dialog triggers once per row (task 5b.2)", () => {
+    render(
+      <DocumentosTable
+        rows={[
+          makeDocumento({ id: 1, nombre: "Acta de reunión" }),
+          makeDocumento({ id: 2, nombre: "Contrato marco" }),
+        ]}
+        clienteId={10}
+        catalogoOptions={makeCatalogoOptions()}
+        directory={makeDirectory()}
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "Editar" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Eliminar" })).toHaveLength(2);
   });
 
   it("shows an em dash when currentVersion/sizeBytes/uploadedBy are null", () => {
