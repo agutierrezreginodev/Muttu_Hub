@@ -37,19 +37,19 @@ function stubSupabase({
 
   const from = vi.fn(() => builder as never);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mockedCreateClient.mockResolvedValue({
+  const client = {
     from,
     storage: { from: vi.fn(() => ({ createSignedUrl })) },
-  } as any);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockedCreateClient.mockResolvedValue(client as any);
 
   return { builder, createSignedUrl, from };
 }
 
 function makeRequest(query = "") {
-  return new Request(
-    `http://localhost/crm/10/documentos/42/descargar${query}`,
-  );
+  return new Request(`http://localhost/crm/10/documentos/42/descargar${query}`);
 }
 
 const params = Promise.resolve({ id: "10", documentoId: "42" });
