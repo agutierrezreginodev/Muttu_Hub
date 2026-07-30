@@ -18,6 +18,7 @@ Reads: proposal.md (required), specs/notification-bell, specs/daily-digest-email
 ## 1. Architecture decisions
 
 ### D1 — One canonical vencimiento model, expressed once in code
+
 A single module `src/lib/notificaciones/vencimiento.ts` exports the window constant
 and the classification, so the bell and the digest cannot drift.
 
@@ -37,6 +38,7 @@ uses the same TS constant. **Rationale:** the "overdue" truth already lives in t
 DB view — reusing it avoids two definitions of "vencido".
 
 ### D2 — Scope = "mine" (`responsable_id = auth.uid()`), not "all-visible"
+
 A Gerencia/Coordinador user can SELECT every cliente's tareas via `crm.ver`. Putting
 all of them in a personal bell would be noise and would make the count meaningless.
 Both surfaces scope to `responsable_id = <me>`. RLS still applies on top (a tarea
@@ -44,7 +46,8 @@ whose origen module the user lost is hidden), so scoping is "mine AND still
 visible" — fail-closed. **Rejected:** an "all-visible" toggle — deferred; adds UI and
 a second, larger query for no v1 need.
 
-### D3 — Bell is LIVE per-request, NOT materialized  ← key decision
+### D3 — Bell is LIVE per-request, NOT materialized ← key decision
+
 - **Chosen:** a server-side query helper reads `v_tarea` on every request, filtered
   to `responsable_id = auth.uid()`, `estado in ('pendiente','en_curso')`, and
   `fecha_limite <= now() + 72h` (this single upper-bound predicate captures BOTH
@@ -52,7 +55,7 @@ a second, larger query for no v1 need.
   `fecha_limite asc`.
 - **Why live:** (a) the per-user dataset is tiny (one person's open tareas);
   (b) the read is index-backed by `tarea_vencidas_idx on (fecha_limite) where
-  deleted_at is null`; (c) freshness is a REQUIREMENT (SC1 — completing a task must
+deleted_at is null`; (c) freshness is a REQUIREMENT (SC1 — completing a task must
   drop it immediately); (d) it mirrors the existing live `getProximoCompromiso`
   read. Materializing (a counter column, a summary table, or a cron-refreshed view)
   would add write-amplification on every tarea mutation plus an invalidation surface,
@@ -61,12 +64,14 @@ a second, larger query for no v1 need.
   push — all reintroduce staleness and invalidation for a query that is already cheap.
 
 ### D4 — Bell adds NO database object
+
 The bell reuses `v_tarea` as-is. The due-soon horizon is applied as a query
 predicate, not a stored column. **Rationale:** minimize the migration surface and
 avoid coupling a UI-tuning constant (72h) into the schema. (If a future need arises
 for a DB-side `vence_pronto`, it becomes a new `security_invoker` view then — not now.)
 
-### D5 — Digest scheduling = pg_cron → pg_net → Edge Function  ← key decision
+### D5 — Digest scheduling = pg_cron → pg_net → Edge Function ← key decision
+
 - **Chosen pipeline:**
   1. `pg_cron` job `daily-digest` fires once/day at a fixed UTC hour equal to 07:00
      `America/Bogota`.
@@ -82,14 +87,15 @@ for a DB-side `vence_pronto`, it becomes a new `security_invoker` view then — 
   arbitrary digest content. An Edge Function keeps aggregation + rendering in
   TypeScript, which is unit-testable with vitest and consistent with the stack.
 - **Rejected alternatives:**
-  - *All-in-Postgres plpgsql job that sends email directly* — no clean SMTP from PL/pgSQL; would need an unmanaged extension. Rejected.
-  - *Next.js route + external cron (Vercel Cron / GitHub Actions)* — adds an external
+  - _All-in-Postgres plpgsql job that sends email directly_ — no clean SMTP from PL/pgSQL; would need an unmanaged extension. Rejected.
+  - _Next.js route + external cron (Vercel Cron / GitHub Actions)_ — adds an external
     scheduler and exposes a callable send endpoint that must be secured; pg_cron keeps
     the trigger inside the DB trust boundary. Rejected for v1.
-  - *Bend GoTrue templates to send the digest* — GoTrue only emits its fixed auth
+  - _Bend GoTrue templates to send the digest_ — GoTrue only emits its fixed auth
     templates; not a general sender. Rejected.
 
 ### D6 — Idempotency via an append-only log with a unique day key
+
 `digest_envio(usuario_id, fecha_envio)` carries `unique (usuario_id, fecha_envio)`.
 The function inserts the log row and treats a unique-violation / `on conflict do
 nothing` as "already sent today → skip". `fecha_envio` is computed as
@@ -102,6 +108,7 @@ digest is low-severity) and NEVER double-sends. (Alternative send-first risks a
 double-send on a crash between send and log; rejected as worse.)
 
 ### D7 — Opt-out as a per-user preference row
+
 `notificacion_preferencia(usuario_id pk, resumen_diario_email boolean not null
 default true, updated_at)`. Absence of a row = opted-in (the default), so no backfill
 is needed for existing users. Self-service write path: an authenticated user
@@ -109,6 +116,7 @@ upserts their OWN row (RLS `usuario_id = auth.uid()`). The digest job left-joins
 table and skips `resumen_diario_email = false`.
 
 ### D8 — No new permission module
+
 `MODULOS` stays `crm/kanban/documentos/dashboard/admin`. Justification: the bell
 reads only the caller's OWN tareas via `v_tarea` (already gated by origen-aware
 `tarea_select`), and opt-out is a self-service own-row write — neither needs a new
@@ -117,6 +125,7 @@ actions across every role's grid for zero enforcement gain. **This honors the "d
 not invent a module lightly" rule.**
 
 ### D9 — service_role scoping is the security-critical invariant
+
 The digest job bypasses RLS. The ONLY per-recipient query shape is `where
 responsable_id = <that user>`. This is enforced structurally (a single parameterized
 aggregation function/query, never a table-wide scan whose rows are then bucketed by
@@ -124,6 +133,7 @@ user in app code) and covered by a dedicated test (SC6). This also satisfies the
 data-minimization posture (each email carries only its recipient's own data).
 
 ### D10 — Extensible source contract
+
 `VencimientoItem = { tipo: 'tarea' | …; id; titulo; fechaLimite; vencido;
 vencePronto; href }`. v1 implements `tipo:'tarea'` only. `documento` expiry (gated
 behind `documentos-repositorio`) and a possible `oportunidad`-staleness source can be
@@ -133,6 +143,7 @@ deadline column today (only `fecha_ultima_gestion`), so it is NOT a v1 source.
 ## 2. Vencimiento query/window model (concrete)
 
 Bell query (server helper, RLS-trusted):
+
 ```
 from v_tarea
 select id, titulo, cliente_id, origen, fecha_limite, estado, vencido
@@ -142,6 +153,7 @@ where responsable_id = auth.uid()
   and fecha_limite <= now() + interval '72 hours'    -- overdue OR due-soon
 order by fecha_limite asc
 ```
+
 - `vencido` (from the view) partitions the result into overdue vs due-soon.
 - No lower bound is needed: anything at or before `now()+72h` in an active state is
   either overdue (`vencido=true`) or due-soon (`vencido=false`).
@@ -151,6 +163,7 @@ order by fecha_limite asc
   `responsable_id` — verified in `20260728041925_audit.sql` — so it IS available).
 
 Digest aggregation (Edge Function, service role, per user `u`):
+
 ```
 same predicate, but responsable_id = u.id, evaluated at the job's T
 ```
@@ -206,11 +219,12 @@ regular client.
 ## 5. Digest — Edge Function architecture
 
 `supabase/functions/daily-digest/`:
+
 - `index.ts` — HTTP handler: authorize the call (function secret), orchestrate.
 - `aggregate.ts` — per-user item aggregation (service-role query, `responsable_id`
   scoped). Pure-where-possible so vitest can test the classification/partition.
 - `render.ts` — pure ES subject/body renderer from `(user, items)` → `{subject, html,
-  text}`. Fully unit-testable (no I/O).
+text}`. Fully unit-testable (no I/O).
 - `send.ts` — transport adapter (SMTP/provider). The only impure edge; kept thin.
 - Idempotency + opt-out live in `index.ts` around `aggregate`/`send`.
 
@@ -220,10 +234,10 @@ function URL + auth header come from DB settings/secrets (never hardcoded).
 
 ## 6. Migration Plan + pgTAP test names
 
-| # | Migration (proposed filename) | Contents | Matching pgTAP test |
-|---|---|---|---|
-| M1 | `*_notificacion_preferencia_digest.sql` | `notificacion_preferencia` + `digest_envio` tables, RLS enable+FORCE, grants/REVOKEs, own-row policies, append-only policies, `v_notificacion_preferencia` view | `supabase/tests/notificacion_preferencia_digest_rls.sql` |
-| M2 | `*_daily_digest_cron.sql` | enable `pg_cron`/`pg_net`; `cron.schedule('daily-digest', …)`; grants for the invocation | `supabase/tests/daily_digest_cron.sql` |
+| #   | Migration (proposed filename)           | Contents                                                                                                                                                        | Matching pgTAP test                                      |
+| --- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| M1  | `*_notificacion_preferencia_digest.sql` | `notificacion_preferencia` + `digest_envio` tables, RLS enable+FORCE, grants/REVOKEs, own-row policies, append-only policies, `v_notificacion_preferencia` view | `supabase/tests/notificacion_preferencia_digest_rls.sql` |
+| M2  | `*_daily_digest_cron.sql`               | enable `pg_cron`/`pg_net`; `cron.schedule('daily-digest', …)`; grants for the invocation                                                                        | `supabase/tests/daily_digest_cron.sql`                   |
 
 pgTAP coverage for M1 (RED first): RLS is enabled+forced on both tables; a user can
 select/insert/update only their OWN `notificacion_preferencia` row and NOT another's;
@@ -263,18 +277,19 @@ feature is a heavy READER. The tarea contract below is taken from
 TODAY. Before applying any tarea-dependent slice (PR1 bell, PR3 digest aggregation),
 each row MUST be re-validated against Kanban's FINAL contract:
 
-| Depended-on surface (today) | How this feature uses it | Must re-confirm if Kanban changes… |
-|---|---|---|
-| `tarea.fecha_limite timestamptz` | window pivot for overdue/due-soon | its name/type, or introduces a separate "start"/"due" split |
-| `tarea.estado` values `borrador,pendiente,en_curso,cumplido,cancelado` | active = `pendiente,en_curso`; terminal = `cumplido,cancelado`; `borrador` excluded | adds/removes/renames a state or re-partitions active vs terminal |
-| `tarea.responsable_id uuid` | THE "mine" scope for bell + digest | ownership model (e.g. multiple assignees, a join table) |
-| `tarea.cliente_id`, `tarea.origen (CRM/Kanban/Ambos)`, `tarea.titulo` | deep-link target + label; origen decides link destination | origen value set, or link targets |
-| `tarea.deleted_at` soft-delete | excluded everywhere (via `v_tarea`) | the soft-delete convention |
-| index `tarea_vencidas_idx on (fecha_limite) where deleted_at is null` | backs the window scan | it is dropped/renamed (perf regression, not correctness) |
+| Depended-on surface (today)                                                              | How this feature uses it                                                                        | Must re-confirm if Kanban changes…                                                 |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `tarea.fecha_limite timestamptz`                                                         | window pivot for overdue/due-soon                                                               | its name/type, or introduces a separate "start"/"due" split                        |
+| `tarea.estado` values `borrador,pendiente,en_curso,cumplido,cancelado`                   | active = `pendiente,en_curso`; terminal = `cumplido,cancelado`; `borrador` excluded             | adds/removes/renames a state or re-partitions active vs terminal                   |
+| `tarea.responsable_id uuid`                                                              | THE "mine" scope for bell + digest                                                              | ownership model (e.g. multiple assignees, a join table)                            |
+| `tarea.cliente_id`, `tarea.origen (CRM/Kanban/Ambos)`, `tarea.titulo`                    | deep-link target + label; origen decides link destination                                       | origen value set, or link targets                                                  |
+| `tarea.deleted_at` soft-delete                                                           | excluded everywhere (via `v_tarea`)                                                             | the soft-delete convention                                                         |
+| index `tarea_vencidas_idx on (fecha_limite) where deleted_at is null`                    | backs the window scan                                                                           | it is dropped/renamed (perf regression, not correctness)                           |
 | view `public.v_tarea` incl. derived `vencido` and the `responsable_id` column it exposes | bell/digest read this view directly; rely on `vencido` and on `responsable_id` being selectable | `v_tarea`'s column list (esp. dropping `responsable_id`), or the `vencido` formula |
-| policy `tarea_select` (origen-aware) | the bell trusts RLS for "still visible" | the visibility predicate |
+| policy `tarea_select` (origen-aware)                                                     | the bell trusts RLS for "still visible"                                                         | the visibility predicate                                                           |
 
 **Concrete pre-apply checklist (owner/Kanban sign-off):**
+
 1. Does `v_tarea` still expose `responsable_id` and `vencido`? (Today: YES.)
 2. Are `pendiente`/`en_curso` still the correct "active, actionable" states, and
    `cumplido`/`cancelado` still the only terminal ones?

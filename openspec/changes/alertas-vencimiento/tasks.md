@@ -12,7 +12,7 @@ Kanban tarea contract confirmed** (see design §8).
 
 ---
 
-## PR1 — Notification bell (app-only, live over `v_tarea`)  🚧 tarea-dependent
+## PR1 — Notification bell (app-only, live over `v_tarea`) 🚧 tarea-dependent
 
 No migration. Reads existing `v_tarea`. Depends on the tarea contract (confirm §8).
 
@@ -46,13 +46,14 @@ No migration. Reads existing `v_tarea`. Depends on the tarea contract (confirm �
 - [ ] 1.11 🔴🟢 Playwright `e2e/notification-bell.spec.ts` — SC1 (count + drops after
       completing a task) and SC3 (A cannot see B's items).
 
-## PR2 — Digest schema (tables + RLS + pgTAP)  ✅ NOT tarea-dependent
+## PR2 — Digest schema (tables + RLS + pgTAP) ✅ NOT tarea-dependent
 
 - [ ] 2.1 🔴 Write `supabase/tests/notificacion_preferencia_digest_rls.sql` (pgTAP,
       FAILS first): RLS enabled+forced on both tables; own-row select/insert/update
       on `notificacion_preferencia` + denial of another user's row; `digest_envio`
-      has no INSERT/UPDATE/DELETE grant for `authenticated`; `unique(usuario_id,
-      fecha_envio)` rejects a duplicate day; `resumen_diario_email` default `true`;
+      has no INSERT/UPDATE/DELETE grant for `authenticated`;
+      `unique(usuario_id, fecha_envio)` rejects a duplicate day;
+      `resumen_diario_email` default `true`;
       `v_notificacion_preferencia` is `security_invoker`.
 - [ ] 2.2 🟢 Write `supabase/migrations/*_notificacion_preferencia_digest.sql`:
       both tables (design §3), RLS enable+FORCE, revoke-all-then-regrant matrix,
@@ -61,12 +62,13 @@ No migration. Reads existing `v_tarea`. Depends on the tarea contract (confirm �
 - [ ] 2.3 Update `src/lib/permissions/schema.ts`? → **NO CHANGE** (design D8). Add a
       one-line comment/test note asserting `MODULOS` is intentionally unchanged (SC8).
 
-## PR3 — Digest aggregation + Edge Function + cron  🚧 tarea-dependent (aggregation)
+## PR3 — Digest aggregation + Edge Function + cron 🚧 tarea-dependent (aggregation)
 
 Largest slice — split into 3a (function/logic) and 3b (schedule wiring) to stay
 within budget.
 
 ### PR3a — Edge Function + pure logic
+
 - [ ] 3a.0 🚧 Re-confirm §8 (aggregation reads the same tarea contract as the bell).
 - [ ] 3a.1 Add `digest` copy to a centralized ES strings module for the function
       (subject, section headings vencidos/próximos, opt-out line, app link label).
@@ -84,6 +86,7 @@ within budget.
       design D6) → send → done.
 
 ### PR3b — Schedule wiring
+
 - [ ] 3b.1 🔴 Write `supabase/tests/daily_digest_cron.sql` (pgTAP, FAILS first):
       `pg_cron`/`pg_net` installed; a `cron.job` row named `daily-digest` exists with
       the expected UTC schedule.
@@ -94,7 +97,7 @@ within budget.
       email arrives (SC4/local delivery); opted-out → none (SC5); re-run same day →
       no second email (SC4 idempotency); no-content user → none.
 
-## PR4 — Opt-out preferences UI  ✅ NOT tarea-dependent
+## PR4 — Opt-out preferences UI ✅ NOT tarea-dependent
 
 - [ ] 4.1 Add preferences copy to `src/messages/es.ts` (screen title, "resumen diario
       por email", on/off, save success).
@@ -117,9 +120,10 @@ within budget.
 ```
 PR2 (schema) ─┐
               ├─> PR3a (function reads schema + tarea) ─> PR3b (cron) ─> PR3 E2E
-PR1 (bell) ───┘         ▲                                   
-PR4 (opt-out UI) ── depends on PR2 (preferencia table)     
+PR1 (bell) ───┘         ▲
+PR4 (opt-out UI) ── depends on PR2 (preferencia table)
 ```
+
 - PR1 and PR2 are independent and can land in either order.
 - PR3a depends on PR2 (writes `digest_envio`, reads `notificacion_preferencia`) and
   on the tarea contract.
@@ -127,13 +131,13 @@ PR4 (opt-out UI) ── depends on PR2 (preferencia table)
 
 ## Review Workload Forecast
 
-| Slice | Est. changed lines | Risk | Notes |
-|---|---|---|---|
-| PR1 bell | ~330 | Med | app + tests; 🚧 tarea-dependent; no DB |
-| PR2 schema | ~300 | Med | migration + pgTAP; new tables; RLS-critical |
-| PR3a fn+logic | ~380 | **High** | new runtime (Edge/Deno), service_role scoping, email render/send; 🚧 |
-| PR3b cron | ~180 | Med | pg_cron/pg_net first use; small SQL + E2E |
-| PR4 opt-out UI | ~240 | Low | standard action+UI pattern |
+| Slice          | Est. changed lines | Risk     | Notes                                                                |
+| -------------- | ------------------ | -------- | -------------------------------------------------------------------- |
+| PR1 bell       | ~330               | Med      | app + tests; 🚧 tarea-dependent; no DB                               |
+| PR2 schema     | ~300               | Med      | migration + pgTAP; new tables; RLS-critical                          |
+| PR3a fn+logic  | ~380               | **High** | new runtime (Edge/Deno), service_role scoping, email render/send; 🚧 |
+| PR3b cron      | ~180               | Med      | pg_cron/pg_net first use; small SQL + E2E                            |
+| PR4 opt-out UI | ~240               | Low      | standard action+UI pattern                                           |
 
 - **Chained PRs recommended: YES.** Five stacked slices; PR3 is split (3a/3b) to keep
   each under the ~400-line budget.

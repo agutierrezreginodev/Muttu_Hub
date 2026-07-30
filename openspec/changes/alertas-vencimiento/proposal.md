@@ -96,9 +96,9 @@ list in the email never disagree.
   keeping render/aggregation in TypeScript makes it unit-testable with vitest.
 - **Idempotency.** `digest_envio` has `unique (usuario_id, fecha_envio)` (calendar
   day in America/Bogota). The function inserts the log row FIRST (or `on conflict do
-  nothing`); a duplicate day is a no-op.
+nothing`); a duplicate day is a no-op.
 - **Opt-out.** `notificacion_preferencia(usuario_id pk, resumen_diario_email bool
-  default true)`. The digest skips users whose flag is false. Absence of a row = the
+default true)`. The digest skips users whose flag is false. Absence of a row = the
   default (opted in).
 - **Permissions.** **No new module.** The bell reads only the caller's own tareas
   through `v_tarea` (already gated by the origen-aware `tarea_select` RLS). Opt-out
@@ -151,7 +151,7 @@ list in the email never disagree.
 - **Cron/Edge (PR3):** `cron.unschedule('daily-digest')` disables sending instantly
   without touching data; the Edge Function can be left deployed but idle.
 - **Preferences UI (PR4):** app-only revert.
-Each slice is independently revertible; disabling the cron is the fastest kill-switch.
+  Each slice is independently revertible; disabling the cron is the fastest kill-switch.
 
 ## Dependencies
 
@@ -172,16 +172,16 @@ engine. This feature is a heavy READER of that engine. Before applying any
 tarea-dependent slice (PR1 bell, PR3 digest aggregation), the following must be
 re-validated against Kanban's FINAL `tarea` contract:
 
-| Depended-on surface (as of `20260728041924_domain.sql`) | Why we depend on it | Re-validate if Kanban… |
-|---|---|---|
-| `tarea.fecha_limite timestamptz` | the vencimiento window pivot | renames/retypes it, or adds a second date |
-| `tarea.estado in ('borrador','pendiente','en_curso','cumplido','cancelado')` | filter = active `('pendiente','en_curso')`; terminal = `('cumplido','cancelado')` | adds/removes/renames a state, or changes which states are "terminal" |
-| `tarea.responsable_id uuid` | the "mine" scope for both surfaces | changes ownership semantics (e.g. multi-assignee) |
-| `tarea.cliente_id`, `tarea.origen`, `tarea.titulo` | deep-link target + label | changes origen values or link targets |
-| `tarea.deleted_at` (soft delete) | excluded from every read | changes the soft-delete convention |
-| index `tarea_vencidas_idx on (fecha_limite) where deleted_at is null` | backs the window scan | drops/renames it |
-| view `public.v_tarea` + its `vencido` expression | the bell/digest read it directly | changes `v_tarea`'s columns, drops it, or edits the `vencido` formula |
-| policy `tarea_select` (origen-aware) | the bell trusts RLS for visibility | changes the visibility predicate |
+| Depended-on surface (as of `20260728041924_domain.sql`)                      | Why we depend on it                                                               | Re-validate if Kanban…                                                |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `tarea.fecha_limite timestamptz`                                             | the vencimiento window pivot                                                      | renames/retypes it, or adds a second date                             |
+| `tarea.estado in ('borrador','pendiente','en_curso','cumplido','cancelado')` | filter = active `('pendiente','en_curso')`; terminal = `('cumplido','cancelado')` | adds/removes/renames a state, or changes which states are "terminal"  |
+| `tarea.responsable_id uuid`                                                  | the "mine" scope for both surfaces                                                | changes ownership semantics (e.g. multi-assignee)                     |
+| `tarea.cliente_id`, `tarea.origen`, `tarea.titulo`                           | deep-link target + label                                                          | changes origen values or link targets                                 |
+| `tarea.deleted_at` (soft delete)                                             | excluded from every read                                                          | changes the soft-delete convention                                    |
+| index `tarea_vencidas_idx on (fecha_limite) where deleted_at is null`        | backs the window scan                                                             | drops/renames it                                                      |
+| view `public.v_tarea` + its `vencido` expression                             | the bell/digest read it directly                                                  | changes `v_tarea`'s columns, drops it, or edits the `vencido` formula |
+| policy `tarea_select` (origen-aware)                                         | the bell trusts RLS for visibility                                                | changes the visibility predicate                                      |
 
 **Gate:** the tasks file marks every tarea-dependent task `BLOCKED until Kanban tarea
 contract confirmed`. Non-tarea slices (PR2 schema, PR4 UI) are NOT blocked.

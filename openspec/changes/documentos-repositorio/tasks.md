@@ -38,8 +38,9 @@ changed lines). PRs stack in order; each is independently reviewable.
 - [x] 2.1 RED: write `supabase/tests/documentos_repositorio_rls.sql` — 3-axis
       SELECT/INSERT/UPDATE matrix (cliente_visible × `documentos.<verb>` × category) across
       Admin/Gerencia/Coordinador/Colaborador; recategorize gated on old (USING) + new
-      (WITH CHECK); no-direct-write-grant on `documento_version`, `unique(documento_id,
-    version)` collision; denormalized `cliente_id` composite-FK anti-drift;
+      (WITH CHECK); no-direct-write-grant on `documento_version`,
+      `unique(documento_id, version)` collision; denormalized `cliente_id`
+      composite-FK anti-drift;
       soft-delete-parent hides versions; CAT5 rejects an in-use `categoria_documento`
       code; `v_documento` is `security_invoker` and reports the latest version.
       (`add_documento_version`/`soft_delete_documento` RPC assertions moved to PR2b's
@@ -117,8 +118,7 @@ changed lines). PRs stack in order; each is independently reviewable.
 - [x] 4.6 RED: `src/lib/documentos/actions.test.ts` — `updateDocumentoAction` /
       `deleteDocumentoAction` do permission pre-check (`assertDocumentosPermission`) → zod →
       write/RPC → `revalidatePath`, mocked. Established the actions.test.ts mocking
-      pattern for this codebase (mocks `createClient`'s `rpc()`/`.from()` directly + `next/
-    cache`'s `revalidatePath`) — no prior `actions.ts` was unit-tested directly before
+      pattern for this codebase (mocks `createClient`'s `rpc()`/`.from()` directly + `next/cache`'s `revalidatePath`) — no prior `actions.ts` was unit-tested before
       this (every existing `*-dialog.test.tsx` only mocks the action function one layer up).
 - [x] 4.7 GREEN: `src/lib/documentos/actions.ts` — mirror `src/lib/crm/actions.ts`
       (`assertDocumentosPermission('documentos', accion)`, editar/eliminar paths). Only

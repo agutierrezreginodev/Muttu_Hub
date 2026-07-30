@@ -40,7 +40,7 @@ the fixed 5×5 grid (`src/lib/permissions/schema.ts`, DB CHECK
 ### Out (deferred, with justification)
 
 - **Standalone cross-cliente library screen.** The 7th ficha tab is the primary and
-  only surface in this change. A cross-cliente listing reads the *same* RLS-gated
+  only surface in this change. A cross-cliente listing reads the _same_ RLS-gated
   `v_documento`, so it can be added later with zero schema change — keeping it out now
   bounds the PR count.
 - **User-level (override) category grants.** Category access is role-level only,
@@ -59,17 +59,17 @@ the fixed 5×5 grid (`src/lib/permissions/schema.ts`, DB CHECK
 
 ### New
 
-| Capability | Spec file | Summary |
-| --- | --- | --- |
-| `document-library` | `specs/document-library/spec.md` | Metadata model, the 7th tab, list/upload/rename/recategorize/soft-delete, single download, storage layout. |
-| `document-versioning` | `specs/document-versioning/spec.md` | Parent + version-row model, monotonic version numbers, retained history, RPC-only write path. |
+| Capability             | Spec file                            | Summary                                                                                                     |
+| ---------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `document-library`     | `specs/document-library/spec.md`     | Metadata model, the 7th tab, list/upload/rename/recategorize/soft-delete, single download, storage layout.  |
+| `document-versioning`  | `specs/document-versioning/spec.md`  | Parent + version-row model, monotonic version numbers, retained history, RPC-only write path.               |
 | `document-permissions` | `specs/document-permissions/spec.md` | Per-category access composed with `documentos` module + `cliente_visible` in RLS, and at the storage layer. |
-| `document-zip-export` | `specs/document-zip-export/spec.md` | Multi-select streamed zip via a Route Handler gated on `documentos.exportar`. |
+| `document-zip-export`  | `specs/document-zip-export/spec.md`  | Multi-select streamed zip via a Route Handler gated on `documentos.exportar`.                               |
 
 ### Modified
 
-- **`crm-ficha-cliente` (spec FC8).** FC8 currently mandates *exactly 6* ficha tabs and
-  *no* Documentos tab/stub. This change adds Documentos as the **7th** tab; FC8's tab
+- **`crm-ficha-cliente` (spec FC8).** FC8 currently mandates _exactly 6_ ficha tabs and
+  _no_ Documentos tab/stub. This change adds Documentos as the **7th** tab; FC8's tab
   count and the `ficha-tabs.test.tsx` assertions are updated accordingly (never left
   as a dead link — the route ships in the same slice as the tab entry).
 - **`private.soft_delete_catalogo` (CAT5 guard).** Extended to reject deactivating a
@@ -95,33 +95,33 @@ the fixed 5×5 grid (`src/lib/permissions/schema.ts`, DB CHECK
 
 ## Affected Areas
 
-| Area | Path | Change |
-| --- | --- | --- |
-| DB migration | `supabase/migrations/*_documentos_categoria_permiso.sql` | NEW grant table + `categoria_visible`. |
-| DB migration | `supabase/migrations/*_documentos_repositorio.sql` | NEW `documento`, `documento_version`, `v_documento`, RPCs, CAT5 extension. |
-| DB migration | `supabase/migrations/*_documentos_storage.sql` | NEW bucket + `storage.objects` policies. |
-| DB tests | `supabase/tests/documentos_*_rls.sql` | RED pgTAP per migration (CI-enforced). |
-| Lib | `src/lib/documentos/{schemas,queries,actions,storage-paths}.ts` (+ `*.test.ts`) | NEW zod / query / action / path helpers. |
-| Permissions | `src/lib/permissions/*` | No grid change (`documentos` already present); UI gating reads the merged grid. |
-| Route | `src/app/(app)/crm/[id]/documentos/page.tsx` + client components | NEW 7th tab. |
-| Route Handlers | `.../documentos/upload/route.ts`, `.../[documentoId]/descargar/route.ts`, `.../descargar-zip/route.ts` | NEW byte transport. |
-| Tabs | `src/app/(app)/crm/[id]/ficha-tabs.tsx` + `ficha-tabs.test.tsx` | 7th tab + FC8 test reversal. |
-| Admin | `src/app/(app)/admin/...` category-grant surface (+ actions/tests) | NEW role→category editor. |
-| Copy | `src/messages/es.ts` | NEW `es.crm.tabs.documentos`, `es.documentos.*`. |
-| Config | `supabase/config.toml` | Optional `[storage.buckets.documentos]` block (mime allow-list / size). |
+| Area           | Path                                                                                                   | Change                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| DB migration   | `supabase/migrations/*_documentos_categoria_permiso.sql`                                               | NEW grant table + `categoria_visible`.                                          |
+| DB migration   | `supabase/migrations/*_documentos_repositorio.sql`                                                     | NEW `documento`, `documento_version`, `v_documento`, RPCs, CAT5 extension.      |
+| DB migration   | `supabase/migrations/*_documentos_storage.sql`                                                         | NEW bucket + `storage.objects` policies.                                        |
+| DB tests       | `supabase/tests/documentos_*_rls.sql`                                                                  | RED pgTAP per migration (CI-enforced).                                          |
+| Lib            | `src/lib/documentos/{schemas,queries,actions,storage-paths}.ts` (+ `*.test.ts`)                        | NEW zod / query / action / path helpers.                                        |
+| Permissions    | `src/lib/permissions/*`                                                                                | No grid change (`documentos` already present); UI gating reads the merged grid. |
+| Route          | `src/app/(app)/crm/[id]/documentos/page.tsx` + client components                                       | NEW 7th tab.                                                                    |
+| Route Handlers | `.../documentos/upload/route.ts`, `.../[documentoId]/descargar/route.ts`, `.../descargar-zip/route.ts` | NEW byte transport.                                                             |
+| Tabs           | `src/app/(app)/crm/[id]/ficha-tabs.tsx` + `ficha-tabs.test.tsx`                                        | 7th tab + FC8 test reversal.                                                    |
+| Admin          | `src/app/(app)/admin/...` category-grant surface (+ actions/tests)                                     | NEW role→category editor.                                                       |
+| Copy           | `src/messages/es.ts`                                                                                   | NEW `es.crm.tabs.documentos`, `es.documentos.*`.                                |
+| Config         | `supabase/config.toml`                                                                                 | Optional `[storage.buckets.documentos]` block (mime allow-list / size).         |
 
 ## Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-| --- | --- | --- | --- |
-| FC8 reversal skipped or done as a dead link | Med | High (broken tab / red suite) | Tab entry, route, and the FC8 test reversal ship in the **same** slice; task explicitly reverses each assertion. |
-| Category not enforced on the byte layer | Med | High (data exposure) | `storage.objects` SELECT policy delegates to `documento_version` RLS via `EXISTS`; a pgTAP test asserts a category-denied role cannot mint a signed URL. |
-| Category unenforced on **upload** (path has no category) | Med | Med | Upload flow checks `categoria_visible` at the metadata insert BEFORE writing bytes; storage INSERT policy adds `cliente_visible + crear` defense-in-depth. Orphan bytes are invisible (no version row references them). |
-| Zip route memory/timeout on large multi-select | Med | Med | Stream with `fflate` (no full buffering); cap count/total size (open question 7); Edge Function is the documented escape hatch. |
-| Circular FK (`documento` ↔ current version) | Low | Med | Avoided entirely — current version is derived (`max(version)`), not stored. |
-| Server Action 1 MB body cap breaks uploads | High if used | High | Byte transport uses Route Handlers (multipart), never Server Actions. |
-| New npm dep (`fflate`) not yet installed | High | Low | Added in the zip-export slice; zero-dependency, streaming, Node+Edge safe. |
-| Version-number race (two concurrent uploads) | Low | Med | `add_documento_version` computes `max(version)+1` inside a single definer statement; `unique(documento_id, version)` rejects a collision (caller retries). |
+| Risk                                                     | Likelihood   | Impact                        | Mitigation                                                                                                                                                                                                              |
+| -------------------------------------------------------- | ------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FC8 reversal skipped or done as a dead link              | Med          | High (broken tab / red suite) | Tab entry, route, and the FC8 test reversal ship in the **same** slice; task explicitly reverses each assertion.                                                                                                        |
+| Category not enforced on the byte layer                  | Med          | High (data exposure)          | `storage.objects` SELECT policy delegates to `documento_version` RLS via `EXISTS`; a pgTAP test asserts a category-denied role cannot mint a signed URL.                                                                |
+| Category unenforced on **upload** (path has no category) | Med          | Med                           | Upload flow checks `categoria_visible` at the metadata insert BEFORE writing bytes; storage INSERT policy adds `cliente_visible + crear` defense-in-depth. Orphan bytes are invisible (no version row references them). |
+| Zip route memory/timeout on large multi-select           | Med          | Med                           | Stream with `fflate` (no full buffering); cap count/total size (open question 7); Edge Function is the documented escape hatch.                                                                                         |
+| Circular FK (`documento` ↔ current version)              | Low          | Med                           | Avoided entirely — current version is derived (`max(version)`), not stored.                                                                                                                                             |
+| Server Action 1 MB body cap breaks uploads               | High if used | High                          | Byte transport uses Route Handlers (multipart), never Server Actions.                                                                                                                                                   |
+| New npm dep (`fflate`) not yet installed                 | High         | Low                           | Added in the zip-export slice; zero-dependency, streaming, Node+Edge safe.                                                                                                                                              |
+| Version-number race (two concurrent uploads)             | Low          | Med                           | `add_documento_version` computes `max(version)+1` inside a single definer statement; `unique(documento_id, version)` rejects a collision (caller retries).                                                              |
 
 ## Rollback Plan
 
@@ -131,7 +131,7 @@ the fixed 5×5 grid (`src/lib/permissions/schema.ts`, DB CHECK
   compatible (only adds a new `EXISTS` branch).
 - **Post-release forward-fix:** ship a migration dropping the three new tables (cascades
   the version/junction), the bucket, and the two RPCs; `create or replace
-  soft_delete_catalogo` back to the PR3 body. The 7th tab is removed by reverting
+soft_delete_catalogo` back to the PR3 body. The 7th tab is removed by reverting
   `ficha-tabs.tsx` + restoring the FC8 6-tab test. No CRM/identity data is touched.
 - **Storage bytes:** dropping the bucket removes objects; if data must be preserved,
   keep the bucket and only drop metadata tables (bytes become inert/unreferenced).

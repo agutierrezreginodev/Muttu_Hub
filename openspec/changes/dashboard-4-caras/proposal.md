@@ -139,10 +139,10 @@ The aggregation views are `create view` only — dropping them affects nothing e
   re-validated against Kanban's final design before applying PR-4 and the Kanban portion of
   PR-5:
 
-  | Face | tarea surface depended on | Must re-validate |
-  |------|---------------------------|------------------|
-  | **Tareas** (fully blocked) | `estado` enum values (`borrador,pendiente,en_curso,cumplido,cancelado`); `origen` (`CRM,Kanban,Ambos`) filter semantics; `responsable_id`; `fecha_limite`; `v_tarea.vencido` derived column; `deleted_at` soft-delete; **completion timestamp (does not exist today)** for throughput | Whether estado values/labels change; whether Kanban adds/renames states; whether a `completed_at`/history exists to make throughput exact; whether `v_tarea` keeps `vencido` |
-  | **Mi Resumen** (partially blocked) | Same as above, scoped to `responsable_id = auth.uid()`. The **CRM/Ambos compromiso** slice + **my clients** are Kanban-independent; the **full-origen "my tareas"** counts (which include `origen = Kanban`) are Kanban-dependent | Whether Kanban-origin tareas assigned to me are counted the same way; same estado/timestamp questions as Tareas |
+  | Face                               | tarea surface depended on                                                                                                                                                                                                                                                             | Must re-validate                                                                                                                                                             |
+  | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | **Tareas** (fully blocked)         | `estado` enum values (`borrador,pendiente,en_curso,cumplido,cancelado`); `origen` (`CRM,Kanban,Ambos`) filter semantics; `responsable_id`; `fecha_limite`; `v_tarea.vencido` derived column; `deleted_at` soft-delete; **completion timestamp (does not exist today)** for throughput | Whether estado values/labels change; whether Kanban adds/renames states; whether a `completed_at`/history exists to make throughput exact; whether `v_tarea` keeps `vencido` |
+  | **Mi Resumen** (partially blocked) | Same as above, scoped to `responsable_id = auth.uid()`. The **CRM/Ambos compromiso** slice + **my clients** are Kanban-independent; the **full-origen "my tareas"** counts (which include `origen = Kanban`) are Kanban-dependent                                                     | Whether Kanban-origin tareas assigned to me are counted the same way; same estado/timestamp questions as Tareas                                                              |
 
   Pipeline and Actividad Clientes read `oportunidad`/`contacto`/`bitacora_cliente`/`cliente`
   only and are **fully independent of Kanban**.
@@ -165,8 +165,8 @@ The aggregation views are `create view` only — dropping them affects nothing e
 
 ### Open Questions for the owner
 
-1. **Conversion classification (R2):** which `estado_oportunidad` codes count as *won* vs
-   *lost* vs *open*? Until answered, Pipeline ships count/value-by-estado (works with any
+1. **Conversion classification (R2):** which `estado_oportunidad` codes count as _won_ vs
+   _lost_ vs _open_? Until answered, Pipeline ships count/value-by-estado (works with any
    codes) and shows conversion as "pending classification" rather than a possibly-wrong
    number. Preferred resolution: a small classification (e.g. a `catalogo` metadata flag or
    an approved code convention).

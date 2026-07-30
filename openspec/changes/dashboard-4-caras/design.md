@@ -12,18 +12,18 @@ migrations — apply writes the real migrations (each RED-tested first).
 > **A separate agent is actively building Kanban, which OWNS `public.tarea`.** Two faces
 > read `tarea`. Everything below is designed against `tarea` AS IT EXISTS TODAY
 > (`supabase/migrations/20260728041924_domain.sql`): `estado in
-> (borrador,pendiente,en_curso,cumplido,cancelado)`, `origen in (CRM,Kanban,Ambos)`,
+(borrador,pendiente,en_curso,cumplido,cancelado)`, `origen in (CRM,Kanban,Ambos)`,
 > `responsable_id uuid`, `fecha_limite timestamptz`, `deleted_at` soft-delete, and the
 > `public.v_tarea` view with its derived `vencido` column. **Do NOT apply the
 > Kanban-dependent slices until the checklist below is re-validated against Kanban's
 > final contract.**
 
-| Face | Blocked? | `tarea` surface it depends on | Re-validate before apply |
-|------|----------|-------------------------------|---------------------------|
-| **Pipeline** | No | none | — |
-| **Actividad** | No | none | — |
-| **Tareas** | **YES (fully)** | `estado` values & their labels; `origen` filter semantics; `responsable_id`; `fecha_limite`; `v_tarea.vencido`; `deleted_at`; **a completion timestamp — does NOT exist today** (throughput uses `updated_at` of `cumplido` rows as an approximation) | (a) Did Kanban change/rename/add estados? Read estados from data, not hardcoded. (b) Does `v_tarea` still exist and still expose `vencido`? (c) Did Kanban add `completed_at`/a status-history table? If yes, switch throughput to it and drop the "aproximado" label. (d) Any new `origen` value? |
-| **Mi Resumen** | **PARTIAL** | Same as Tareas, scoped `responsable_id = auth.uid()`. **Independent slice:** my-clients (`v_cliente.responsable_interno_id`) + CRM/Ambos compromisos. **Blocked slice:** full-origen "my tareas" counts that include `origen = Kanban` | Re-validate the same estado/timestamp questions ONLY for the full-origen counts. The independent slice may ship first. |
+| Face           | Blocked?        | `tarea` surface it depends on                                                                                                                                                                                                                         | Re-validate before apply                                                                                                                                                                                                                                                                           |
+| -------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pipeline**   | No              | none                                                                                                                                                                                                                                                  | —                                                                                                                                                                                                                                                                                                  |
+| **Actividad**  | No              | none                                                                                                                                                                                                                                                  | —                                                                                                                                                                                                                                                                                                  |
+| **Tareas**     | **YES (fully)** | `estado` values & their labels; `origen` filter semantics; `responsable_id`; `fecha_limite`; `v_tarea.vencido`; `deleted_at`; **a completion timestamp — does NOT exist today** (throughput uses `updated_at` of `cumplido` rows as an approximation) | (a) Did Kanban change/rename/add estados? Read estados from data, not hardcoded. (b) Does `v_tarea` still exist and still expose `vencido`? (c) Did Kanban add `completed_at`/a status-history table? If yes, switch throughput to it and drop the "aproximado" label. (d) Any new `origen` value? |
+| **Mi Resumen** | **PARTIAL**     | Same as Tareas, scoped `responsable_id = auth.uid()`. **Independent slice:** my-clients (`v_cliente.responsable_interno_id`) + CRM/Ambos compromisos. **Blocked slice:** full-origen "my tareas" counts that include `origen = Kanban`                | Re-validate the same estado/timestamp questions ONLY for the full-origen counts. The independent slice may ship first.                                                                                                                                                                             |
 
 **Rule enforced in tasks.md:** PR-4 (Tareas) and the Kanban portion of PR-5 (Mi Resumen)
 are marked `BLOCKED until Kanban tarea contract confirmed`. Pipeline, Actividad, and the
@@ -38,7 +38,7 @@ date-range parameter is unavoidable, a `security invoker` SQL function). We NEVE
 `security definer` for aggregation.
 
 Rationale: Postgres RLS is the only security boundary. A `security_invoker` view executes
-under the caller's privileges, so RLS on every referenced base table applies *before*
+under the caller's privileges, so RLS on every referenced base table applies _before_
 aggregation — each viewer's numbers are computed from only the rows their RLS permits. A
 `security definer` aggregate would bypass RLS and force us to re-implement `cliente_visible`
 / the origen-aware tarea predicate by hand — a second, drift-prone copy of the security
@@ -239,7 +239,7 @@ with (security_invoker = true) as
   the query layer.
 - **Kanban-dependent slice (blocked):** the full-origen totals that include `origen = 'Kanban'`.
 - Agenda list: `v_tarea` where `responsable_id = auth.uid()`, non-terminal, `order by
-  fecha_limite asc` (query layer — reuses the `getProximoCompromiso` shape, generalized).
+fecha_limite asc` (query layer — reuses the `getProximoCompromiso` shape, generalized).
 
 ## 5. Chart-type mapping (dataviz convention)
 
@@ -248,24 +248,24 @@ categorical color; change-over-time → line/area; a single headline → stat ti
 **Color is chosen last** and validated. Categorical hues assigned in fixed order, never cycled;
 one axis per chart (never dual-axis); status palette reserved for overdue/critical only.
 
-| Face | Metric | Chart / mark | dataviz notes |
-|------|--------|--------------|---------------|
-| Pipeline | open count, total value COP | **stat tiles** | headline numbers, no plot |
-| Pipeline | conversion % | **stat tile** | "pendiente de clasificación" until R2 resolved |
-| Pipeline | oportunidades por estado (count) | **horizontal bar** | single series → no legend; direct labels; ordered by catalog `orden` |
-| Pipeline | valor por estado (COP) | **horizontal bar (separate chart)** | NOT dual-axis with count |
-| Pipeline | por servicio_interes | **horizontal bar** top N + "Otros" | 9th+ never a new hue |
-| Tareas | total open, overdue, completed-period | **stat tiles** | overdue uses reserved status color + icon + label |
-| Tareas | count por estado | **horizontal bar** | estados read from data |
-| Tareas | throughput (weekly cumplido) | **line/area over time** | labeled "aproximado" until completion timestamp |
-| Tareas | open por responsable | **horizontal bar** top N + "Otros" | overdue distinguishable |
-| Actividad | nuevos contactos, nuevas oportunidades | **stat tiles** | window-scoped |
-| Actividad | actividad por semana | **line/area over time** | all event types |
-| Actividad | clientes más activos | **horizontal bar** top N + "Otros" | ranked magnitude |
-| Actividad | recent activity | **timeline list** (not a chart) | type badge + cliente + actor + relative time |
-| Mi Resumen | mis abiertas, compromisos, vencen pronto, vencidas, mis clientes | **stat tiles** | overdue uses status color + icon |
-| Mi Resumen | mis tareas por estado | **horizontal bar (small)** | single series |
-| Mi Resumen | mi agenda | **list** ordered by fecha_limite | overdue flagged |
+| Face       | Metric                                                           | Chart / mark                        | dataviz notes                                                        |
+| ---------- | ---------------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------- |
+| Pipeline   | open count, total value COP                                      | **stat tiles**                      | headline numbers, no plot                                            |
+| Pipeline   | conversion %                                                     | **stat tile**                       | "pendiente de clasificación" until R2 resolved                       |
+| Pipeline   | oportunidades por estado (count)                                 | **horizontal bar**                  | single series → no legend; direct labels; ordered by catalog `orden` |
+| Pipeline   | valor por estado (COP)                                           | **horizontal bar (separate chart)** | NOT dual-axis with count                                             |
+| Pipeline   | por servicio_interes                                             | **horizontal bar** top N + "Otros"  | 9th+ never a new hue                                                 |
+| Tareas     | total open, overdue, completed-period                            | **stat tiles**                      | overdue uses reserved status color + icon + label                    |
+| Tareas     | count por estado                                                 | **horizontal bar**                  | estados read from data                                               |
+| Tareas     | throughput (weekly cumplido)                                     | **line/area over time**             | labeled "aproximado" until completion timestamp                      |
+| Tareas     | open por responsable                                             | **horizontal bar** top N + "Otros"  | overdue distinguishable                                              |
+| Actividad  | nuevos contactos, nuevas oportunidades                           | **stat tiles**                      | window-scoped                                                        |
+| Actividad  | actividad por semana                                             | **line/area over time**             | all event types                                                      |
+| Actividad  | clientes más activos                                             | **horizontal bar** top N + "Otros"  | ranked magnitude                                                     |
+| Actividad  | recent activity                                                  | **timeline list** (not a chart)     | type badge + cliente + actor + relative time                         |
+| Mi Resumen | mis abiertas, compromisos, vencen pronto, vencidas, mis clientes | **stat tiles**                      | overdue uses status color + icon                                     |
+| Mi Resumen | mis tareas por estado                                            | **horizontal bar (small)**          | single series                                                        |
+| Mi Resumen | mi agenda                                                        | **list** ordered by fecha_limite    | overdue flagged                                                      |
 
 **Decision 5 — chart implementation: inline-SVG primitives, no new dependency.** No charting
 library is installed (verified: `package.json` has no recharts/d3/chart.js). The chart set here
@@ -286,12 +286,12 @@ normal-vision floor ≥ 15, contrast) before GREEN. This is a task, not a sugges
 
 ## 6. RLS scoping per face (summary)
 
-| Face | View input | Effective data gate |
-|------|-----------|----------------------|
-| Pipeline | `v_oportunidad`, `oportunidad_servicio` | `oportunidad_select` / `oportunidad_servicio_select` → `cliente_visible` → `crm.ver` |
-| Tareas | `v_tarea` | origen-aware `tarea_select` → `crm.ver` (CRM), `kanban.ver` (Kanban), either (Ambos) |
-| Actividad | `v_actividad_cliente` (UNION) | each branch's base RLS → `cliente_visible` → `crm.ver` |
-| Mi Resumen | `v_tarea` + `v_cliente`, `where … = auth.uid()` | self-scope by `auth.uid()` AND the same tarea/cliente RLS underneath |
+| Face       | View input                                      | Effective data gate                                                                  |
+| ---------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Pipeline   | `v_oportunidad`, `oportunidad_servicio`         | `oportunidad_select` / `oportunidad_servicio_select` → `cliente_visible` → `crm.ver` |
+| Tareas     | `v_tarea`                                       | origen-aware `tarea_select` → `crm.ver` (CRM), `kanban.ver` (Kanban), either (Ambos) |
+| Actividad  | `v_actividad_cliente` (UNION)                   | each branch's base RLS → `cliente_visible` → `crm.ver`                               |
+| Mi Resumen | `v_tarea` + `v_cliente`, `where … = auth.uid()` | self-scope by `auth.uid()` AND the same tarea/cliente RLS underneath                 |
 
 Route gate for all four: `dashboard.ver` (layout). No face's numbers can exceed what the
 viewer's domain RLS already permits.
@@ -300,7 +300,7 @@ viewer's domain RLS already permits.
 
 - RLS predicates evaluate per row during aggregation. For a single-org dataset this is
   acceptable. Existing partial indexes help: `tarea_vencidas_idx (fecha_limite) where
-  deleted_at is null`, `oportunidad_cliente_idx where deleted_at is null`,
+deleted_at is null`, `oportunidad_cliente_idx where deleted_at is null`,
   `bitacora_cliente_idx (cliente_id, created_at desc)`, `oportunidad_servicio_cliente_idx`.
 - Avoid N+1: faces read a handful of pre-aggregated views via `Promise.all`, never a
   per-cliente loop in the client. The Actividad UNION view replaces four per-cliente queries
@@ -319,14 +319,15 @@ Each migration is `create view` only (+ grants); no table/column/policy change. 
 matching pgTAP file (CI-enforced, RED before GREEN). Timestamps assigned at apply after the
 latest existing migration (`20260728200200`).
 
-| # | Migration (logical) | Views created | pgTAP test file |
-|---|---------------------|---------------|-----------------|
-| M1 | `dashboard_pipeline_views` | `v_dashboard_pipeline_estado`, `v_dashboard_pipeline_totales`, `v_dashboard_pipeline_servicio` | `supabase/tests/dashboard_pipeline_views.sql` |
-| M2 | `dashboard_actividad_views` | `v_actividad_cliente` (UNION) | `supabase/tests/dashboard_actividad_views.sql` |
-| M3 | `dashboard_tareas_views` **(Kanban-blocked)** | `v_dashboard_tareas_estado`, `v_dashboard_tareas_responsable`, `v_dashboard_tareas_throughput` | `supabase/tests/dashboard_tareas_views.sql` |
-| M4 | `dashboard_mi_resumen_views` **(partial)** | `v_dashboard_mi_resumen_tareas`, `v_dashboard_mis_clientes` | `supabase/tests/dashboard_mi_resumen_views.sql` |
+| #   | Migration (logical)                           | Views created                                                                                  | pgTAP test file                                 |
+| --- | --------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| M1  | `dashboard_pipeline_views`                    | `v_dashboard_pipeline_estado`, `v_dashboard_pipeline_totales`, `v_dashboard_pipeline_servicio` | `supabase/tests/dashboard_pipeline_views.sql`   |
+| M2  | `dashboard_actividad_views`                   | `v_actividad_cliente` (UNION)                                                                  | `supabase/tests/dashboard_actividad_views.sql`  |
+| M3  | `dashboard_tareas_views` **(Kanban-blocked)** | `v_dashboard_tareas_estado`, `v_dashboard_tareas_responsable`, `v_dashboard_tareas_throughput` | `supabase/tests/dashboard_tareas_views.sql`     |
+| M4  | `dashboard_mi_resumen_views` **(partial)**    | `v_dashboard_mi_resumen_tareas`, `v_dashboard_mis_clientes`                                    | `supabase/tests/dashboard_mi_resumen_views.sql` |
 
 Each pgTAP file MUST assert (mirroring `crm_contacto_oportunidad_rls.sql`):
+
 1. **`security_invoker` flag** present on each view (`pg_class.reloptions like '%security_invoker=true%'`).
 2. **Grants:** `authenticated` has SELECT, and NO INSERT/UPDATE/DELETE, on each view.
 3. **RLS scoping:** with fixtures spanning clientes/tareas across roles — a `crm.ver` holder

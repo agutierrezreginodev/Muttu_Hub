@@ -55,6 +55,7 @@ version row are invisible to every read (the `EXISTS` matches nothing).
 ### Decision 6 — Byte transport via Route Handlers; metadata mutations via Server Actions
 
 Server Actions cap request bodies at ~1 MB and are awkward for streaming binary. So:
+
 - **Upload** (multipart) and **zip export** (streamed) and **single download**
   (signed-URL redirect) → Next.js **Route Handlers** (`route.ts`, Node runtime).
 - **Rename / recategorize / edit description+tags / soft-delete** (small, JSON) →
@@ -227,12 +228,13 @@ create policy documento_objects_insert on storage.objects for insert to authenti
 
 RPCs (SECURITY DEFINER, search_path = '', private + public wrapper, mirroring
 `set_oportunidad_servicios` / `soft_delete_*`):
+
 - `add_documento_version(p_documento_id, p_storage_path, p_original_filename, p_size_bytes, p_mime_type)`
   → look up documento (cliente_id, categoria, not deleted) → assert `cliente_visible +
-  has_permission('documentos','crear') + categoria_visible(categoria)` → insert version
+has_permission('documentos','crear') + categoria_visible(categoria)` → insert version
   `coalesce(max(version),0)+1`.
 - `soft_delete_documento(p_id)` → assert `cliente_visible + has_permission('documentos',
-  'eliminar') + categoria_visible(categoria)` → `update documento set deleted_at = now()`.
+'eliminar') + categoria_visible(categoria)` → `update documento set deleted_at = now()`.
 - Extend `private.soft_delete_catalogo` with an `EXISTS` branch over non-deleted
   `documento` for `categoria_cat_tipo = p_tipo and categoria = p_codigo` (CAT5).
 
@@ -289,14 +291,14 @@ have a `supabase/tests/<slug>_*.sql` test. RED pgTAP is written BEFORE each migr
 ## Test Plan
 
 - **pgTAP (RED-first):**
-  - *categoria_permiso*: resolver true/false, fail-closed (no auth / inactive user), FK
+  - _categoria_permiso_: resolver true/false, fail-closed (no auth / inactive user), FK
     rejection, admin-only writes.
-  - *documentos_repositorio*: 3-axis SELECT/INSERT/UPDATE matrix across roles; recategorize
+  - _documentos_repositorio_: 3-axis SELECT/INSERT/UPDATE matrix across roles; recategorize
     old+new gate; version RPC monotonic numbering + category gate + no direct write grant;
     denormalized `cliente_id` composite-FK anti-drift; `soft_delete_documento` permission
     gate; visibility-follow (soft-delete parent hides versions); CAT5 rejects in-use
     category; `v_documento` is security_invoker + reports the latest version.
-  - *documentos_storage*: bucket private; SELECT `EXISTS` delegation (category-denied role
+  - _documentos_storage_: bucket private; SELECT `EXISTS` delegation (category-denied role
     gets no object); INSERT cliente+crear gate; no UPDATE/DELETE for authenticated.
 - **vitest (RTL / unit):** `schemas.test.ts` (zod: name required, category required, tags,
   mime/size); `queries.test.ts` (trust-RLS empty-not-error); `actions.test.ts` (permission

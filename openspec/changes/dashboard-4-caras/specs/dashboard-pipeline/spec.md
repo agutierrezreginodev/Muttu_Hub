@@ -88,7 +88,7 @@ shared dual y-axis (the one-axis rule); the two measures are two charts.
 ### Requirement: Conversion metric with an explicit, confirmed classification
 
 Conversion SHALL be computed only from an **owner-confirmed classification** of which
-`estado_oportunidad` codes are *won* versus *lost* versus *open*. Until that classification
+`estado_oportunidad` codes are _won_ versus _lost_ versus _open_. Until that classification
 is confirmed, the conversion tile SHALL display a "pending classification" state rather than
 a possibly-incorrect percentage. When confirmed, conversion = won / (won + lost).
 
