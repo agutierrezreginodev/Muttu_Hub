@@ -67,16 +67,25 @@ changed lines). PRs stack in order; each is independently reviewable.
 
 ## PR3 — DB: storage bucket + policies (`documentos_storage`)
 
-- [ ] 3.1 RED: write `supabase/tests/documentos_storage_rls.sql` — bucket exists + private;
+- [x] 3.1 RED: write `supabase/tests/documentos_storage_rls.sql` — bucket exists + private;
       `storage.objects` SELECT `EXISTS`-delegation (a category-denied role finds no object
       for a path whose version it cannot see; an authorized role does); INSERT gate
       (`cliente_visible((foldername)[1]::bigint) + documentos.crear`); no UPDATE/DELETE
       policy for authenticated.
-- [ ] 3.2 GREEN: create `supabase/migrations/<ts>_documentos_storage.sql` — insert bucket
-      `documentos` (private, on-conflict-do-nothing); SELECT/INSERT policies per design.
-- [ ] 3.3 Optional: add `[storage.buckets.documentos]` to `config.toml` (mime allow-list /
-      size) if the owner confirms restrictions (open question 6).
-- [ ] 3.4 Run pgTAP → all green. `check-migration-tests.sh` passes.
+- [x] 3.2 GREEN: created `supabase/migrations/20260730150000_documentos_storage.sql` —
+      insert bucket `documentos` (private, on-conflict-do-nothing); SELECT policy delegates
+      to `documento_version` RLS via `EXISTS`; INSERT policy gates on
+      `cliente_visible((foldername)[1]::bigint) + documentos.crear`; no UPDATE/DELETE
+      policy for authenticated.
+- [ ] 3.3 Skipped (owner has not resolved open question 6): no `[storage.buckets.documentos]`
+      mime allow-list / size block added to `config.toml`. Explicitly optional per this task's
+      own wording — revisit once the owner confirms restrictions.
+- [x] 3.4 (partial — CI-deferred, same posture as PR1/PR2) `check-migration-tests.sh`
+      verified passing locally for this file (13 migrations, 13 pgTAP test pairings);
+      `pnpm typecheck`/`lint`/`test` all green (139 vitest tests, no regression — this
+      slice touches zero TypeScript). Actual pgTAP execution requires the `supabase` CLI,
+      not installed locally — CI (`supabase/setup-cli@v1` + `supabase test db`) is the
+      real gate.
 
 ## PR4 — Lib: schemas + queries + metadata actions + copy
 
