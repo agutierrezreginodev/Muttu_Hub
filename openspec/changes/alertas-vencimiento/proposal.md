@@ -1,3 +1,17 @@
+> **⚠️ SUPERSEDED — 2026-07-30.** This change is superseded by the `kanban-module`
+> SDD change (Engram-tracked), which absorbs BOTH capabilities (`notification-bell`,
+> `daily-digest-email`) so that Kanban and the alerting engine settle the shared
+> `tarea` contract in one change instead of coordinating across two. The Kanban
+> dependency gate this document describes in §"Kanban Dependency — confirm before
+> apply" is therefore dissolved, not scheduled.
+>
+> **Authoritative plan:** Engram `topic_key: sdd/kanban-module/proposal` (+ part 2 at
+> `sdd/kanban-module/proposal-delivery`), project `muttu_hub`.
+>
+> This file and its `design.md` / `specs/` / `tasks.md` are retained UNCHANGED as
+> source material — `sdd-spec` reuses the two spec files' scenarios rather than
+> re-deriving them. Do not plan or apply work from this change directly.
+
 # Proposal — Alertas de vencimiento
 
 Change slug: `alertas-vencimiento`
