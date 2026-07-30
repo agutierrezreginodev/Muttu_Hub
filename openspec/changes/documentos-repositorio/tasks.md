@@ -156,15 +156,50 @@ changed lines). PRs stack in order; each is independently reviewable.
 
 ## PR5b — UI: upload + version history + edit/delete dialogs
 
-- [ ] 5b.1 RED: `upload-documento-dialog.test.tsx` + `documento-version-dialog.test.tsx` +
+> APPLIED: split into PR5b-i and PR5b-ii. All four dialogs in one slice measured
+> well over the 400-line budget, but the split boundary is not just size — it
+> separates what WORKS on merge from what does not:
+>
+> - **PR5b-i** (edit + delete) uses only Server Actions that shipped in PR4, so
+>   it is fully functional the moment it merges. 655 lines (328 RED + 327 GREEN).
+> - **PR5b-ii** (upload + version history) POSTs to PR6's upload route, so its
+>   two submit paths stay inert until PR6 lands. 1,296 lines (663 RED + 633
+>   GREEN), over budget and disclosed like PR2/PR4.
+>
+> Reviewing them separately means the inert half can be held back without
+> blocking the working half.
+>
+> Three things PR5b-ii added beyond task 5b.2's own wording:
+>
+> - `src/lib/documentos/upload-client.ts` — `postDocumentoUpload`, the FIRST
+>   client-side `fetch` in this codebase. Its doc comment pins the exact
+>   multipart field contract PR6's `upload/route.ts` must parse: `file`;
+>   `documentoId` present means add-a-version; `nombre`/`categoria` never
+>   re-sent for a version; `tags` JSON-encoded.
+> - `listVersionesByCliente` in `queries.ts` — the tab renders one history
+>   dialog PER ROW, so calling `listVersiones` per row would fire one round trip
+>   per document on every page load. One query filtered on
+>   `documento_version`'s DENORMALIZED `cliente_id`, grouped in memory.
+> - `src/lib/documentos/format.ts` — `formatBytes` moved out of
+>   `documentos-table.tsx` (PR5a) now that the history dialog renders
+>   per-version sizes too.
+>
+> Both upload paths call `router.refresh()` after success: the route revalidates
+> server-side, but a client `fetch` does not re-render the RSC tree, so without
+> it the table shows stale rows until a manual reload.
+
+- [x] 5b.1 RED: `upload-documento-dialog.test.tsx` + `documento-version-dialog.test.tsx` +
       `edit-documento-dialog.test.tsx` + `delete-documento-dialog.test.tsx` — form state,
       submit wiring (mock the upload route / actions), success toast, error alert.
-- [ ] 5b.2 GREEN: `upload-documento-dialog.tsx` (file input + category select + name/desc/
+      Also `upload-client.test.ts` (the multipart wire contract) and a
+      `listVersionesByCliente` block in `queries.test.ts`.
+- [x] 5b.2 GREEN: `upload-documento-dialog.tsx` (file input + category select + name/desc/
       tags; posts multipart to the upload Route Handler), `documento-version-dialog.tsx`
       (history list + per-version download + "upload new version"),
       `edit-documento-dialog.tsx` (rename/recategorize/desc/tags via
       `updateDocumentoAction`), `delete-documento-dialog.tsx` (soft-delete). Mirror the
-      oportunidad dialogs (h-11 targets, `useTransition`, toast).
+      oportunidad dialogs (h-11 targets, `useTransition`, toast). See the note above
+      for the three files this slice added beyond that wording.
 
 ## PR6 — Route Handlers: upload + single download + zip export
 
