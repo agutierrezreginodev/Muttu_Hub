@@ -8,20 +8,19 @@ vi.mock("next/navigation", () => ({
 import { FichaTabs } from "./ficha-tabs";
 
 /**
- * Task 8.12, spec FC8 (the single most distinctive requirement of this
- * final PR): after PR8, the ficha MUST render EXACTLY 6 tabs — General,
- * Contactos, Oportunidades, Compromisos, Bitácora, Tareas relacionadas —
- * and there MUST be NO Documentos tab or stub anywhere in the route or
- * DOM (out of scope per the proposal, blocked on repositorio-module). This
- * is asserted directly, not by visual confidence alone.
+ * Task 5a.1, spec document-library "Documentos ficha tab (7th tab)": this
+ * SUPERSEDES the prior FC8 discipline (exactly 6 tabs, no Documentos). After
+ * `documentos-repositorio` PR5a, the ficha renders exactly **7** tabs,
+ * ending with Documentos, and its link points to a route that exists
+ * (`crm/[id]/documentos/page.tsx`, shipped in this same slice).
  */
-describe("FichaTabs tab count (task 8.12, spec FC8)", () => {
-  it("renders exactly 6 tab links", () => {
+describe("FichaTabs tab count (task 5a.1, spec document-library FC8 reversal)", () => {
+  it("renders exactly 7 tab links", () => {
     render(<FichaTabs clienteId={10} />);
-    expect(screen.getAllByRole("link")).toHaveLength(6);
+    expect(screen.getAllByRole("link")).toHaveLength(7);
   });
 
-  it("renders exactly the 6 spec FC8 tab labels, in order", () => {
+  it("renders exactly the 7 tab labels, in order, ending with Documentos", () => {
     render(<FichaTabs clienteId={10} />);
     const labels = screen.getAllByRole("link").map((link) => link.textContent);
 
@@ -32,19 +31,14 @@ describe("FichaTabs tab count (task 8.12, spec FC8)", () => {
       "Compromisos",
       "Bitácora",
       "Tareas relacionadas",
+      "Documentos",
     ]);
   });
 
-  it("never renders a Documentos tab or stub anywhere in the DOM", () => {
+  it("renders a Documentos tab whose link points to an existing /crm/{id}/documentos route", () => {
     render(<FichaTabs clienteId={10} />);
-    expect(screen.queryByText(/documentos/i)).not.toBeInTheDocument();
-  });
-
-  it("never renders a link to a /documentos route", () => {
-    render(<FichaTabs clienteId={10} />);
-    const hrefs = screen
-      .getAllByRole("link")
-      .map((link) => link.getAttribute("href"));
-    expect(hrefs.some((href) => href?.includes("documentos"))).toBe(false);
+    const documentosLink = screen.getByRole("link", { name: "Documentos" });
+    expect(documentosLink).toBeInTheDocument();
+    expect(documentosLink).toHaveAttribute("href", "/crm/10/documentos");
   });
 });
