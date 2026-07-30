@@ -45,7 +45,10 @@ function stubSupabase(options: SupabaseStubOptions = {}) {
     addVersionError = null,
   } = options;
 
-  const upload = vi.fn(async () => ({ data: { path: "x" }, error: uploadError }));
+  const upload = vi.fn(async () => ({
+    data: { path: "x" },
+    error: uploadError,
+  }));
   const rpc = vi.fn(async (name: string) => {
     if (name === "has_permission") {
       return { data: allowed, error: null };
@@ -223,7 +226,10 @@ describe("POST /crm/[id]/documentos/upload (task 6.1/6.2, design Decision 6)", (
     );
     expect(rpc).toHaveBeenCalledWith(
       "add_documento_version",
-      expect.objectContaining({ p_documento_id: 42, p_storage_path: "10/42/3/acta-v3.pdf" }),
+      expect.objectContaining({
+        p_documento_id: 42,
+        p_storage_path: "10/42/3/acta-v3.pdf",
+      }),
     );
   });
 
