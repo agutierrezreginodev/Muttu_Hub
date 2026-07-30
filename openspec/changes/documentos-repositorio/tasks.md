@@ -89,21 +89,42 @@ changed lines). PRs stack in order; each is independently reviewable.
 
 ## PR4 — Lib: schemas + queries + metadata actions + copy
 
-- [ ] 4.1 RED: `src/lib/documentos/schemas.test.ts` — zod: `nombre` required, `categoria`
+> APPLIED: measured 1,012 lines (627 test + 385 impl incl. `es.ts`) across two
+> commits (RED tests, then GREEN implementation) — well over the 400-line budget,
+> disclosed here per the same chained-PR review posture as PR2a/PR2b. Not
+> split further: tasks.md groups all of schemas/queries/storage-paths/actions/
+> copy under this one slice with no documented split option (unlike PR2), and
+> the four lib areas are tightly coupled (actions depends on schemas; queries
+> and storage-paths are the smallest, standalone pieces). Flagged for the
+> owner's awareness before PR5/PR6 land.
+
+- [x] 4.1 RED: `src/lib/documentos/schemas.test.ts` — zod: `nombre` required, `categoria`
       required, `tags` array, `descripcion` optional-trimmed, upload metadata (mime/size
       shape). Follow `src/lib/crm/schemas.ts` `optionalTrimmed` conventions.
-- [ ] 4.2 GREEN: `src/lib/documentos/schemas.ts`.
-- [ ] 4.3 RED: `src/lib/documentos/queries.test.ts` — `listDocumentos(clienteId)` and
-      `listVersiones(documentoId)` map rows; trust-RLS (empty, not error).
-- [ ] 4.4 GREEN: `src/lib/documentos/queries.ts` (reads `v_documento` + `documento_version`).
-- [ ] 4.5 GREEN: `src/lib/documentos/storage-paths.ts` — pure path builder
-      `{cliente_id}/{documento_id}/{version}/{filename}` + filename sanitizer (+ unit test).
-- [ ] 4.6 RED: `src/lib/documentos/actions.test.ts` — `updateDocumentoAction` /
+- [x] 4.2 GREEN: `src/lib/documentos/schemas.ts`.
+- [x] 4.3 RED: `src/lib/documentos/queries.test.ts` — `listDocumentos(clienteId)` and
+      `listVersiones(documentoId)` map rows; trust-RLS (empty, not error). Established a
+      new mocking pattern (`vi.mock("@/lib/supabase/server")` + a thenable query-builder
+      stub) — no prior `*.test.ts` in this codebase unit-tested a Supabase-calling query
+      function directly.
+- [x] 4.4 GREEN: `src/lib/documentos/queries.ts` (reads `v_documento` + `documento_version`).
+- [x] 4.5 GREEN: `src/lib/documentos/storage-paths.ts` — pure path builder
+      `{cliente_id}/{documento_id}/{version}/{filename}` + filename sanitizer (+ unit test,
+      `storage-paths.test.ts`, RED-first). Sanitizer strips path separators (defends
+      against traversal), transliterates diacritics (NFD strip, e.g. "señal" ->
+      "senal") instead of dropping accented letters outright, collapses whitespace to
+      `_`, and falls back to `"documento"` when nothing survives.
+- [x] 4.6 RED: `src/lib/documentos/actions.test.ts` — `updateDocumentoAction` /
       `deleteDocumentoAction` do permission pre-check (`assertDocumentosPermission`) → zod →
-      write/RPC → `revalidatePath`, mocked.
-- [ ] 4.7 GREEN: `src/lib/documentos/actions.ts` — mirror `src/lib/crm/actions.ts`
-      (`assertDocumentosPermission('documentos', accion)`, editar/eliminar paths).
-- [ ] 4.8 GREEN: extend `src/messages/es.ts` — `es.crm.tabs.documentos = "Documentos"` +
+      write/RPC → `revalidatePath`, mocked. Established the actions.test.ts mocking
+      pattern for this codebase (mocks `createClient`'s `rpc()`/`.from()` directly + `next/
+      cache`'s `revalidatePath`) — no prior `actions.ts` was unit-tested directly before
+      this (every existing `*-dialog.test.tsx` only mocks the action function one layer up).
+- [x] 4.7 GREEN: `src/lib/documentos/actions.ts` — mirror `src/lib/crm/actions.ts`
+      (`assertDocumentosPermission('documentos', accion)`, editar/eliminar paths). Only
+      `updateDocumentoAction`/`deleteDocumentoAction` — create/add-version are byte
+      transport (Route Handlers, PR6 per design Decision 6), not Server Actions.
+- [x] 4.8 GREEN: extend `src/messages/es.ts` — `es.crm.tabs.documentos = "Documentos"` +
       `es.documentos.*` (labels, buttons, dialogs, zip, version history, errors).
 
 ## PR5a — UI: 7th tab + list + FC8 reversal
