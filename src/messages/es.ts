@@ -283,6 +283,9 @@ export const es = {
       button: "Descargar seleccionados (.zip)",
       preparing: "Preparando descarga…",
       noSelectionError: "Seleccioná al menos un documento.",
+      tooManyError: "Seleccionaste demasiados documentos. Probá con menos.",
+      tooLargeError:
+        "La selección es demasiado grande. Probá con menos documentos.",
     },
     downloadError: "No se pudo descargar el archivo.",
   },

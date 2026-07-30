@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 // The per-row dialogs are real components here (only their Server Actions, the
 // upload route and the router are mocked), so the table's wiring is what is
@@ -11,6 +18,11 @@ vi.mock("@/lib/documentos/actions", () => ({
 
 vi.mock("@/lib/documentos/upload-client", () => ({
   postDocumentoUpload: vi.fn(),
+}));
+
+const requestDocumentoZipMock = vi.fn();
+vi.mock("@/lib/documentos/zip-client", () => ({
+  requestDocumentoZip: (...args: unknown[]) => requestDocumentoZipMock(...args),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -169,6 +181,64 @@ describe("DocumentosTable (task 5a.3/5a.4, spec document-library)", () => {
     expect(
       screen.getAllByRole("button", { name: "Historial de versiones" }),
     ).toHaveLength(2);
+  });
+
+  it("offers no zip button until something is selected (task 6.6)", () => {
+    renderTable([makeDocumento({ id: 1 })]);
+
+    expect(
+      screen.queryByRole("button", { name: "Descargar seleccionados (.zip)" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("exports exactly the selected ids, and only those (task 6.6)", async () => {
+    requestDocumentoZipMock.mockReset();
+    requestDocumentoZipMock.mockResolvedValue({});
+    const user = userEvent.setup();
+
+    renderTable([
+      makeDocumento({ id: 1, nombre: "Acta de reunión" }),
+      makeDocumento({ id: 2, nombre: "Contrato marco" }),
+      makeDocumento({ id: 3, nombre: "Anexo" }),
+    ]);
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Seleccionar Acta de reunión" }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Seleccionar Anexo" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Descargar seleccionados (.zip)" }),
+    );
+
+    await waitFor(() => {
+      expect(requestDocumentoZipMock).toHaveBeenCalledWith({
+        clienteId: 10,
+        documentoIds: [1, 3],
+      });
+    });
+  });
+
+  it("surfaces a zip failure inline instead of failing silently (task 6.6)", async () => {
+    requestDocumentoZipMock.mockReset();
+    requestDocumentoZipMock.mockResolvedValue({
+      error: "Seleccionaste demasiados documentos. Probá con menos.",
+    });
+    const user = userEvent.setup();
+
+    renderTable([makeDocumento({ id: 1, nombre: "Acta de reunión" })]);
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Seleccionar Acta de reunión" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Descargar seleccionados (.zip)" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Seleccionaste demasiados documentos. Probá con menos.",
+    );
   });
 
   it("shows an em dash when currentVersion/sizeBytes/uploadedBy are null", () => {

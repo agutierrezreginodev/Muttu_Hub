@@ -266,7 +266,50 @@ describe("POST /crm/[id]/documentos/descargar-zip (task 6.4/6.5, spec document-z
 
     const response = await POST(makeRequest({ documentoIds: [1] }), { params });
 
-    // Every entry failed, so there is nothing to send.
-    expect(response.status).toBe(204);
+    // NOT a 204: the response status is committed before any object is read,
+    // which is inherent to streaming. The 204 case is the pre-stream one
+    // (nothing in the selection was visible at all). What matters here is that
+    // an unreadable object yields a VALID archive missing that entry, rather
+    // than a corrupt or aborted download.
+    expect(response.status).toBe(200);
+    const entries = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    expect(Object.keys(entries)).toEqual([]);
+  });
+
+  it("still archives the readable entries when one object is unreadable", async () => {
+    const rows = [
+      versionRow({ documento_id: 1, original_filename: "acta.pdf" }),
+      versionRow({
+        documento_id: 2,
+        storage_path: "10/2/1/roto.pdf",
+        original_filename: "roto.pdf",
+      }),
+    ];
+
+    const builder = {
+      select: vi.fn(() => builder),
+      in: vi.fn(() => builder),
+      order: vi.fn(async () => ({ data: rows, error: null })),
+    };
+    // Only the second object fails, simulating bytes orphaned by a failed
+    // upload or a grant revoked mid-export.
+    const download = vi.fn(async (path: string) => ({
+      data: path === "10/2/1/roto.pdf" ? null : new Blob(["some bytes"]),
+      error: path === "10/2/1/roto.pdf" ? { message: "gone" } : null,
+    }));
+    const client = {
+      rpc: vi.fn(async () => ({ data: true, error: null })),
+      from: vi.fn(() => builder as never),
+      storage: { from: vi.fn(() => ({ download })) },
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockedCreateClient.mockResolvedValue(client as any);
+
+    const response = await POST(makeRequest({ documentoIds: [1, 2] }), {
+      params,
+    });
+
+    const entries = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    expect(Object.keys(entries)).toEqual(["acta.pdf"]);
   });
 });
