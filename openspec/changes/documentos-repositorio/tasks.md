@@ -203,21 +203,43 @@ changed lines). PRs stack in order; each is independently reviewable.
 
 ## PR6 — Route Handlers: upload + single download + zip export
 
-- [ ] 6.1 RED: `upload/route.test.ts` (or E2E) — multipart parse; gate pre-check; on new
+> APPLIED: split into PR6a (upload), PR6b (single download) and PR6c (zip export
+>
+> - task 6.6's button). Each closes a different disclosed gap, so they are worth
+>   reviewing apart: PR6a makes PR5b-ii's inert upload dialogs work, PR6b resolves
+>   PR5a's per-row download 404, and PR6c adds a capability nothing depended on yet.
+>   These are the FIRST Route Handlers in this codebase, so PR6a also sets the
+>   testing pattern: invoke the real handler with a real `Request`, mocking only
+>   Supabase and `next/cache`.
+>
+> Two decisions worth the reviewer's attention. (a) The upload gate is
+> `documentos.crear` for BOTH a new document and a new version — open question 3
+> is already settled in the database, since `add_documento_version` itself raises
+> 42501 without `crear`, so pre-checking `editar` would admit requests Postgres
+> then rejects. (b) The zip caps (`MAX_ZIP_DOCUMENTS` 50,
+> `MAX_ZIP_TOTAL_BYTES` 200 MiB) are open question 7 and still owner-confirmable;
+> the spec mandates that a bound EXIST, so they ship as exported constants with
+> the reasoning recorded rather than as invented product limits.
+
+- [x] 6.1 RED: `upload/route.test.ts` (or E2E) — multipart parse; gate pre-check; on new
       doc creates parent+v1; on existing doc adds next version via RPC; denies ungranted
       category.
-- [ ] 6.2 GREEN: `crm/[id]/documentos/upload/route.ts` — parse multipart; RLS-gated client;
+- [x] 6.2 GREEN: `crm/[id]/documentos/upload/route.ts` — parse multipart; RLS-gated client;
       validate metadata gates; `storage.upload(path, bytes)`; `add_documento_version` RPC;
       `revalidatePath`.
-- [ ] 6.3 GREEN: `crm/[id]/documentos/[documentoId]/descargar/route.ts` — resolve requested
+- [x] 6.3 GREEN: `crm/[id]/documentos/[documentoId]/descargar/route.ts` — resolve requested
       version's path; `createSignedUrl(path, ttl)`; 302 redirect; 404 when not visible.
-- [ ] 6.4 RED: zip entry-naming helper test + `descargar-zip/route.test.ts` — `exportar`
+- [x] 6.4 RED: zip entry-naming helper test + `descargar-zip/route.test.ts` — `exportar`
       pre-check denies without it; unauthorized selections excluded; duplicate filenames
       both survive.
-- [ ] 6.5 GREEN: add `fflate` dep; `crm/[id]/documentos/descargar-zip/route.ts` — POST
+- [x] 6.5 GREEN: add `fflate` dep; `crm/[id]/documentos/descargar-zip/route.ts` — POST
       selection; `has_permission('documentos','exportar')` gate; select visible current
       versions (RLS-gated); stream `fflate` zip; count/size cap; collision-safe names.
-- [ ] 6.6 Wire the zip button + single-download links in `documentos-table.tsx`.
+- [x] 6.6 Wire the zip button + single-download links in `documentos-table.tsx`.
+      The button appears only once a row is selected, and posts the selection in
+      ON-SCREEN row order rather than ticking order, so entry order — and therefore
+      which duplicate filename receives the ` (2)` suffix — is stable. A 204 (nothing
+      in the selection was visible) is reported to the user distinctly from a failure.
 
 ## PR7 — Admin: category-grant editor
 
