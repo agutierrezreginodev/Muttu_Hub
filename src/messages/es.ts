@@ -286,6 +286,7 @@ export const es = {
       tooManyError: "Seleccionaste demasiados documentos. Probá con menos.",
       tooLargeError:
         "La selección es demasiado grande. Probá con menos documentos.",
+      emptyResultError: "No hay documentos disponibles para descargar.",
     },
     downloadError: "No se pudo descargar el archivo.",
   },

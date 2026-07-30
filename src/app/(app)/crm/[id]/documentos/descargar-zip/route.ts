@@ -102,7 +102,9 @@ export async function POST(
   // `storage_path`, which is the one column needed to fetch the bytes.
   const { data: versionRows } = await supabase
     .from("documento_version")
-    .select("documento_id, version, storage_path, original_filename, size_bytes")
+    .select(
+      "documento_id, version, storage_path, original_filename, size_bytes",
+    )
     .in("documento_id", documentoIds)
     .order("version", { ascending: false });
 
