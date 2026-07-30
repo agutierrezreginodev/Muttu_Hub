@@ -23,13 +23,14 @@ interface FichaTab {
  * deep-linkable and gets its own server-side fetch (no over-fetching).
  *
  * PR6 shipped ONLY the General tab; PR7 appended Contactos/Oportunidades;
- * PR8 appends Compromisos/Bitácora/Tareas relacionadas here, completing the
- * FULL 6-tab set spec FC8 requires (General, Contactos, Oportunidades,
- * Compromisos, Bitácora, Tareas relacionadas) — never as a dead link to a
- * route that does not exist yet. A Documentos tab MUST NOT be built or
- * stubbed anywhere in this change (spec FC8, out of scope per proposal) —
- * this array is the single place a 7th tab could slip in, so it stays
- * exactly 6 entries.
+ * PR8 appended Compromisos/Bitácora/Tareas relacionadas, completing the
+ * 6-tab set spec FC8 originally required.
+ *
+ * `documentos-repositorio` PR5a SUPERSEDES that FC8 discipline (design
+ * Decision 9, spec document-library "Documentos ficha tab (7th tab)"):
+ * Documentos is appended here as the 7th tab in the SAME slice that ships
+ * the real `/crm/[id]/documentos` route — never a dead link. This array is
+ * now the FULL 7-tab set.
  */
 const TABS: FichaTab[] = [
   { segment: null, label: es.crm.tabs.general },
@@ -38,6 +39,7 @@ const TABS: FichaTab[] = [
   { segment: "compromisos", label: es.crm.tabs.compromisos },
   { segment: "bitacora", label: es.crm.tabs.bitacora },
   { segment: "tareas", label: es.crm.tabs.tareas },
+  { segment: "documentos", label: es.crm.tabs.documentos },
 ];
 
 export function FichaTabs({ clienteId }: FichaTabsProps) {

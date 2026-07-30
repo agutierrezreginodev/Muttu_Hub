@@ -1,0 +1,32 @@
+export interface UsuarioDirectoryEntry {
+  nombre: string;
+  email: string;
+}
+
+export type UsuarioDirectory = Map<string, UsuarioDirectoryEntry>;
+
+/**
+ * Pure, client-safe usuario-directory helper (split out of `directory.ts`
+ * during `documentos-repositorio` PR5a, per the exact bug/fix already
+ * documented in `@/lib/crm/catalogo-options`): `directory.ts` also exports
+ * `getUsuarioDirectory`, which imports `createClient` from
+ * `@/lib/supabase/server` — a server-only module using `next/headers`. A
+ * `"use client"` table component (`documentos-table.tsx`) importing
+ * `resolveUsuarioLabel`/`UsuarioDirectory` from `directory.ts` would pull
+ * that ENTIRE module (including the server-only import) into the client
+ * bundle, which Next.js rejects at build/dev time. This file has ZERO
+ * server-only imports, so ANY client component may import from it directly.
+ * `directory.ts` re-exports these for convenience in Server Components — but
+ * a `"use client"` file MUST import from THIS file directly, never through
+ * the `directory.ts` barrel, or the same bug recurs.
+ */
+export function resolveUsuarioLabel(
+  directory: UsuarioDirectory,
+  id: string | null,
+): string {
+  if (!id) {
+    return "—";
+  }
+  const entry = directory.get(id);
+  return entry ? entry.nombre : "—";
+}

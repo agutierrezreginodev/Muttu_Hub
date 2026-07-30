@@ -251,6 +251,7 @@ export const es = {
     subidoPor: "Subido por",
     fechaSubida: "Fecha de subida",
     download: "Descargar",
+    selectRow: "Seleccionar",
     upload: {
       button: "Subir documento",
       title: "Subir documento",
