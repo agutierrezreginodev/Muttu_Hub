@@ -250,9 +250,33 @@ changed lines). PRs stack in order; each is independently reviewable.
 
 ## PR8 — E2E: full flow against real local Supabase + Storage
 
-- [ ] 8.1 GREEN: Playwright `e2e/documentos.spec.ts` — upload → new version → per-category
+> APPLIED: **CI-only, NOT executed locally.** The `supabase` CLI is absent in this
+> environment, so Playwright cannot start the stack it needs — same posture as the
+> pgTAP suites in PR1-PR3. What WAS verified locally: `tsc --noEmit` covers `e2e/`
+> (tsconfig includes `**/*.ts`), `eslint` and `prettier` are clean, and
+> `playwright test --list` discovers all three new tests and compiles their files.
+> Whether they PASS is decided by CI's `e2e` job.
+>
+> The fixtures had to seed a `categoria_documento` code and grant it, because
+> `private.categoria_visible` has **no administrator bypass** — it requires a
+> `documento_categoria_permiso` row for the caller's `rol_id`, so without an
+> explicit grant even the Administrador sees nothing. That is the same reason the
+> product is unusable until an admin acts on open question 1.
+
+- [x] 8.1 GREEN: Playwright `e2e/documentos.spec.ts` — upload → new version → per-category
       visibility with two roles (granted vs denied) → single download → multi-select zip
       (allowed with `exportar`, denied without).
+      Three sessions, one per authorization axis, so each denial is attributable to
+      exactly one cause: the admin (category granted + `exportar`) runs the full flow;
+      `e2e-doc-denied` has `documentos.ver` but NO grant, isolating the CATEGORY axis;
+      `e2e-doc-noexport` gets its own fixture role granted the category with `exportar`
+      false, isolating the bulk-export capability from the ability to read the same
+      documents. Coordinador was reused for the denied case (seed.sql already gives it
+      `documentos.ver` and no grant); the no-export role is new.
+      The historic-download assertion goes through `page.request.get(..., maxRedirects: 0)`
+      rather than a browser navigation, because following the 302 would only show the
+      final object — the test needs the redirect target itself to prove `?version=1`
+      resolves to a DIFFERENT object than the current version.
 
 ---
 
