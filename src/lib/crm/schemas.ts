@@ -111,3 +111,32 @@ export const oportunidadSchema = z.object({
   serviciosInteres: z.array(z.string().trim().min(1)).default([]),
 });
 export type OportunidadInput = z.infer<typeof oportunidadSchema>;
+
+/**
+ * Task 8.3 (spec BIT1/BIT4): the ficha's Bitácora append-only entry form.
+ * Deliberately has ONLY `texto` — no `autorId` field exists on this schema
+ * at all, because `autor_id` is never client-supplied (forced server-side
+ * from the session in `addBitacoraEntryAction`, matching the INSERT
+ * policy's `autor_id = (select auth.uid())` WITH CHECK,
+ * supabase/migrations/20260728200200_crm_bitacora.sql). `.trim().min(1)`
+ * mirrors the DB's own `check (length(btrim(texto)) > 0)`.
+ */
+export const bitacoraSchema = z.object({
+  texto: z.string().trim().min(1, { message: es.common.requiredField }),
+});
+export type BitacoraInput = z.infer<typeof bitacoraSchema>;
+
+/**
+ * Task 8.3 (spec FC9, design Decision 9): creating a compromiso is a plain
+ * `tarea` insert with `origen = 'CRM'` — no new table. `fechaLimite` and
+ * `prioridad` are optional, same posture as every other optional field in
+ * this file; `prioridad` is a catalog code (FK-enforced in Postgres, the
+ * real gate here is only a non-empty-when-present string, same as
+ * `clienteGeneralSchema.prioridad`).
+ */
+export const compromisoSchema = z.object({
+  titulo: z.string().trim().min(1, { message: es.common.requiredField }),
+  fechaLimite: optionalTrimmed(z.string().date()),
+  prioridad: optionalTrimmed(z.string()),
+});
+export type CompromisoInput = z.infer<typeof compromisoSchema>;

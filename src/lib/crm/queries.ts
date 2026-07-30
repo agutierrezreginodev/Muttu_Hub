@@ -260,3 +260,135 @@ export async function listOportunidades(
     serviciosInteres: serviciosByOportunidad.get(row.id) ?? [],
   }));
 }
+
+export interface BitacoraEntry {
+  id: number;
+  clienteId: number;
+  autorId: string;
+  texto: string;
+  createdAt: string;
+}
+
+/**
+ * List bitácora entries for a cliente (task 8.2, spec BIT1-BIT6),
+ * newest-first, matching `bitacora_cliente_idx (cliente_id, created_at
+ * desc)` (supabase/migrations/20260728200200_crm_bitacora.sql). Reads the
+ * BASE table directly -- `bitacora_cliente` has no view (design DDL
+ * section 4, same as `registro_acceso`) -- relying entirely on
+ * `bitacora_cliente_select` RLS (`private.cliente_visible`) for visibility;
+ * an invisible clienteId yields an empty array, never an error, same
+ * convention as every other list function in this file.
+ */
+export async function listBitacora(
+  clienteId: number,
+): Promise<BitacoraEntry[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("bitacora_cliente")
+    .select("id, cliente_id, autor_id, texto, created_at")
+    .eq("cliente_id", clienteId)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    clienteId: row.cliente_id,
+    autorId: row.autor_id,
+    texto: row.texto,
+    createdAt: row.created_at,
+  }));
+}
+
+/**
+ * The origen partition Compromisos/Tareas relacionadas read from `v_tarea`
+ * (task 8.2, spec FC9, design Decision 9) -- no new table, no new view.
+ * `tarea.origen`'s own CHECK constraint
+ * (supabase/migrations/20260728041924_domain.sql) only ever allows
+ * `'CRM' | 'Kanban' | 'Ambos'`; these two predicates partition that set and
+ * are mutually exclusive by construction (see queries.test.ts).
+ */
+export const COMPROMISO_ORIGENES = ["CRM", "Ambos"] as const;
+export const TAREA_RELACIONADA_ORIGEN = "Kanban" as const;
+
+export function isCompromisoOrigen(origen: string): boolean {
+  return (COMPROMISO_ORIGENES as readonly string[]).includes(origen);
+}
+
+export function isTareaRelacionadaOrigen(origen: string): boolean {
+  return origen === TAREA_RELACIONADA_ORIGEN;
+}
+
+export interface TareaListItem {
+  id: number;
+  titulo: string;
+  descripcion: string | null;
+  responsableId: string | null;
+  fechaLimite: string | null;
+  estado: string;
+  prioridad: string | null;
+  vencido: boolean;
+}
+
+function mapTareaRow(row: {
+  id: number;
+  titulo: string;
+  descripcion: string | null;
+  responsable_id: string | null;
+  fecha_limite: string | null;
+  estado: string;
+  prioridad: string | null;
+  vencido: boolean;
+}): TareaListItem {
+  return {
+    id: row.id,
+    titulo: row.titulo,
+    descripcion: row.descripcion,
+    responsableId: row.responsable_id,
+    fechaLimite: row.fecha_limite,
+    estado: row.estado,
+    prioridad: row.prioridad,
+    vencido: row.vencido,
+  };
+}
+
+/**
+ * Compromisos tab (task 8.2, spec FC9): `v_tarea` filtered to
+ * `cliente_id` + `origen in ('CRM','Ambos')`. Read + create only (design
+ * Decision 9) -- creating one is a plain `tarea` insert via
+ * `createCompromisoAction`, never a write against this view.
+ */
+export async function listCompromisos(
+  clienteId: number,
+): Promise<TareaListItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("v_tarea")
+    .select(
+      "id, titulo, descripcion, responsable_id, fecha_limite, estado, prioridad, vencido",
+    )
+    .eq("cliente_id", clienteId)
+    .in("origen", COMPROMISO_ORIGENES)
+    .order("fecha_limite", { ascending: true, nullsFirst: false });
+
+  return (data ?? []).map(mapTareaRow);
+}
+
+/**
+ * Tareas relacionadas tab (task 8.2, spec FC9): `v_tarea` filtered to
+ * `cliente_id` + `origen = 'Kanban'`. READ-ONLY -- this is Kanban-origin
+ * data; CRM only observes it, it never creates/edits/deletes here.
+ */
+export async function listTareasRelacionadas(
+  clienteId: number,
+): Promise<TareaListItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("v_tarea")
+    .select(
+      "id, titulo, descripcion, responsable_id, fecha_limite, estado, prioridad, vencido",
+    )
+    .eq("cliente_id", clienteId)
+    .eq("origen", TAREA_RELACIONADA_ORIGEN)
+    .order("fecha_limite", { ascending: true, nullsFirst: false });
+
+  return (data ?? []).map(mapTareaRow);
+}

@@ -213,6 +213,29 @@ export const es = {
       deleteConfirmDescription: "Esta acción no se puede deshacer.",
       deleteSuccess: "Oportunidad eliminada.",
     },
+    bitacora: {
+      nuevaEntrada: "Nueva entrada",
+      agregar: "Agregar entrada",
+      createSuccess: "Entrada agregada a la bitácora.",
+      noEntries: "Todavía no hay entradas en la bitácora de este cliente.",
+    },
+    compromisos: {
+      createCompromiso: "Crear compromiso",
+      createCompromisoTitle: "Crear compromiso",
+      titulo: "Título",
+      fechaLimite: "Fecha límite",
+      prioridad: "Prioridad",
+      estado: "Estado",
+      noEntries: "Todavía no hay compromisos para este cliente.",
+      createSuccess: "Compromiso creado.",
+    },
+    tareas: {
+      titulo: "Título",
+      fechaLimite: "Fecha límite",
+      estado: "Estado",
+      noEntries:
+        "No hay tareas relacionadas (originadas en Kanban) para este cliente.",
+    },
   },
 } as const;
 
