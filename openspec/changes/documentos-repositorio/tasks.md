@@ -29,27 +29,41 @@ changed lines). PRs stack in order; each is independently reviewable.
 > Budget risk: HIGH (~380 lines incl. test). If review budget is tight, split PR2a
 > (tables + RLS + `v_documento` + CAT5) and PR2b (`add_documento_version` +
 > `soft_delete_documento`).
+>
+> APPLIED: split into PR2a (`20260730130000_documentos_repositorio.sql` + test) and
+> PR2b (`20260730140000_documento_version_rpc.sql` + test) — measured size still
+> exceeded budget even split (PR2a 490 lines incl. test; PR2b 284 lines incl. test),
+> disclosed in apply-progress. Each is an independent, reviewable work-unit.
 
-- [ ] 2.1 RED: write `supabase/tests/documentos_repositorio_rls.sql` — 3-axis
+- [x] 2.1 RED: write `supabase/tests/documentos_repositorio_rls.sql` — 3-axis
       SELECT/INSERT/UPDATE matrix (cliente_visible × `documentos.<verb>` × category) across
       Admin/Gerencia/Coordinador/Colaborador; recategorize gated on old (USING) + new
-      (WITH CHECK); `add_documento_version` monotonic numbering, category gate,
-      no-direct-write-grant, `unique(documento_id, version)` collision; denormalized
-      `cliente_id` composite-FK anti-drift; `soft_delete_documento` permission gate;
+      (WITH CHECK); no-direct-write-grant on `documento_version`, `unique(documento_id,
+      version)` collision; denormalized `cliente_id` composite-FK anti-drift;
       soft-delete-parent hides versions; CAT5 rejects an in-use `categoria_documento`
       code; `v_documento` is `security_invoker` and reports the latest version.
-- [ ] 2.2 GREEN: create `supabase/migrations/<ts>_documentos_repositorio.sql` — `documento`
-      (NOT NULL `categoria` + discriminator + composite FK, `unique(id,cliente_id)`, audit,
-      `tags text[]`), `documento_version` (denormalized `cliente_id`, composite FK,
-      `unique(documento_id,version)`, `storage_path` unique), `v_documento` (lateral latest
-      version), RLS enable+force on both, grants (documento: SELECT/INSERT + column-scoped
-      UPDATE excluding discriminator/audit/`deleted_at`; version: SELECT only).
-- [ ] 2.3 GREEN: policies per design (`documento_select/insert/update`,
-      `documento_version_select` derives from parent).
-- [ ] 2.4 GREEN: `add_documento_version` + `soft_delete_documento` (private + public
-      wrapper, definer, gated); extend `private.soft_delete_catalogo` with the
-      non-deleted-`documento` category `EXISTS` branch (CAT5).
-- [ ] 2.5 Run pgTAP → all green. `check-migration-tests.sh` passes.
+      (`add_documento_version`/`soft_delete_documento` RPC assertions moved to PR2b's
+      own RED file, `supabase/tests/documento_version_rpc_rls.sql`, per the split.)
+- [x] 2.2 GREEN: created `supabase/migrations/20260730130000_documentos_repositorio.sql` —
+      `documento` (NOT NULL `categoria` + discriminator + composite FK,
+      `unique(id,cliente_id)`, audit, `tags text[]`), `documento_version` (denormalized
+      `cliente_id`, composite FK, `unique(documento_id,version)`, `storage_path` unique),
+      `v_documento` (lateral latest version), RLS enable+force on both, grants
+      (documento: SELECT/INSERT + column-scoped UPDATE excluding discriminator/audit/
+      `deleted_at`; version: SELECT only).
+- [x] 2.3 GREEN: policies per design (`documento_select/insert/update`,
+      `documento_version_select` derives from parent) — same migration as 2.2.
+- [x] 2.4 GREEN: `add_documento_version` + `soft_delete_documento` (private + public
+      wrapper, definer, gated) in `supabase/migrations/20260730140000_documento_version_rpc.sql`
+      (PR2b), RED-first in `supabase/tests/documento_version_rpc_rls.sql`; CAT5 half
+      (extend `private.soft_delete_catalogo` with the non-deleted-`documento` category
+      `EXISTS` branch) shipped in PR2a's migration instead (grouped with the tables it
+      protects, per the 2a/2b split boundary).
+- [x] 2.5 (partial — CI-deferred, same posture as PR1) `check-migration-tests.sh`
+      verified passing locally for both PR2a/PR2b files; `pnpm typecheck`/`lint`/`test`
+      all green (139 vitest tests, no regression — this slice touches zero TypeScript).
+      Actual pgTAP execution requires the `supabase` CLI, not installed locally — CI
+      (`supabase/setup-cli@v1` + `supabase test db`) is the real gate.
 
 ## PR3 — DB: storage bucket + policies (`documentos_storage`)
 
