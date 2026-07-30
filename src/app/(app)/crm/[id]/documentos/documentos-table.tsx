@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  activeCatalogoOptions,
   resolveCatalogoLabel,
   type CatalogoOptionsMap,
 } from "@/lib/crm/catalogo-options";
@@ -21,6 +22,8 @@ import {
   type UsuarioDirectory,
 } from "@/lib/admin/directory-options";
 import type { DocumentoListItem } from "@/lib/documentos/queries";
+import { EditDocumentoDialog } from "./edit-documento-dialog";
+import { DeleteDocumentoDialog } from "./delete-documento-dialog";
 
 interface DocumentosTableProps {
   rows: DocumentoListItem[];
@@ -64,6 +67,12 @@ function formatBytes(bytes: number | null): string {
  * barrels, or a `"use client"` file pulls `next/headers` into the client
  * bundle (the exact PR7 bug those two split files document).
  *
+ * PR5b adds the per-row actions cell (`EditDocumentoDialog` +
+ * `DeleteDocumentoDialog`), so this component owns dialog composition but
+ * still holds no data-fetching or mutation logic of its own — the dialogs
+ * call the Server Actions directly, the same way `OportunidadesTable` hosts
+ * its own row dialogs.
+ *
  * Per-row selection state (checkboxes) is local to this component; no
  * consumer exists yet (the zip-export button that reads it lands in PR6
  * task 6.6). The per-row download link already points at the real PR6
@@ -79,6 +88,13 @@ export function DocumentosTable({
   directory,
 }: DocumentosTableProps) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  // Derived here rather than taken as a prop: the full map is already on hand,
+  // and the edit picker must offer active codes ONLY (a deactivated category
+  // still resolves as a LABEL above, for history, but is never a new choice).
+  const categoriaOptions = activeCatalogoOptions(
+    catalogoOptions,
+    "categoria_documento",
+  );
 
   if (rows.length === 0) {
     return (
@@ -112,6 +128,8 @@ export function DocumentosTable({
           <TableHead>{es.documentos.subidoPor}</TableHead>
           <TableHead>{es.documentos.fechaSubida}</TableHead>
           <TableHead className="text-right">{es.documentos.download}</TableHead>
+          {/* Same actions-column header convention as OportunidadesTable. */}
+          <TableHead className="text-right">{es.common.edit}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -155,6 +173,20 @@ export function DocumentosTable({
               >
                 {es.documentos.download}
               </Link>
+            </TableCell>
+            <TableCell className="text-right">
+              <div className="flex flex-wrap justify-end gap-2">
+                <EditDocumentoDialog
+                  clienteId={clienteId}
+                  documento={row}
+                  categoriaOptions={categoriaOptions}
+                />
+                <DeleteDocumentoDialog
+                  clienteId={clienteId}
+                  documentoId={row.id}
+                  nombre={row.nombre}
+                />
+              </div>
             </TableCell>
           </TableRow>
         ))}
