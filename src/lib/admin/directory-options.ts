@@ -5,6 +5,12 @@ export interface UsuarioDirectoryEntry {
 
 export type UsuarioDirectory = Map<string, UsuarioDirectoryEntry>;
 
+export interface RolOption {
+  id: number;
+  nombre: string;
+  activo: boolean;
+}
+
 /**
  * Pure, client-safe usuario-directory helper (split out of `directory.ts`
  * during `documentos-repositorio` PR5a, per the exact bug/fix already

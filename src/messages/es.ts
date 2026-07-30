@@ -118,6 +118,15 @@ export const es = {
     eventReactivacion: "Reactivación",
     forbidden: "No tenés acceso a esta sección.",
     catalogosDescription: "Administrar los códigos de las listas del CRM.",
+    categoryGrants: {
+      title: "Permisos por categoría de documento",
+      description: "Definí qué categorías de documento puede ver cada rol.",
+      rol: "Rol",
+      noCategories:
+        "Primero creá códigos de catálogo del tipo categoria_documento.",
+      grantSuccess: "Permiso otorgado.",
+      revokeSuccess: "Permiso quitado.",
+    },
     catalogos: {
       title: "Catálogos",
       createCatalogo: "Crear código",

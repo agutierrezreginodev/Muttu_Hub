@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   resolveUsuarioLabel,
+  type RolOption,
   type UsuarioDirectory,
 } from "@/lib/admin/directory-options";
 
 export type {
+  RolOption,
   UsuarioDirectory,
   UsuarioDirectoryEntry,
 } from "@/lib/admin/directory-options";
@@ -36,12 +38,6 @@ export async function getUsuarioDirectory(): Promise<UsuarioDirectory> {
     directory.set(row.id, { nombre: row.nombre, email: row.email });
   }
   return directory;
-}
-
-export interface RolOption {
-  id: number;
-  nombre: string;
-  activo: boolean;
 }
 
 /** All roles (active and inactive) — rol is readable by every authenticated user (permissions are not secret, design decision). */
