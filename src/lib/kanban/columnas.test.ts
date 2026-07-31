@@ -7,6 +7,7 @@ import {
   fallbackColumna,
   groupTareasByColumna,
   isTerminalColumna,
+  sortTareasForBoard,
 } from "@/lib/kanban/columnas";
 
 /**
@@ -121,5 +122,140 @@ describe("groupTareasByColumna (design D3's tradeoff — null and the first acti
     const tareas = [{ id: 1, columna: "codigo_desactivado" }];
     const groups = groupTareasByColumna(tareas, activas);
     expect(groups.get("por_hacer")?.map((t) => t.id)).toEqual([1]);
+  });
+});
+
+/**
+ * Slice 4b (tasks: sdd/kanban-module/tasks, design part 2 §12 — "Card
+ * ordering within a column"). PURE, so no query mock is needed: v1 has no
+ * manual reorder (`posicion`), so this predicate alone decides a column's
+ * card order: `fecha_limite` asc (nulls last) -> `prioridad` (Alta, Media,
+ * Baja — the exact `orden` the `prioridad` catalog seeds,
+ * supabase/migrations/20260728182944_crm_catalogos.sql:118-120) ->
+ * `created_at` asc.
+ */
+describe("sortTareasForBoard (design part 2 §12 — fecha_limite -> prioridad -> created_at)", () => {
+  function makeTarea(overrides: {
+    id: number;
+    fechaLimite: string | null;
+    prioridad: string | null;
+    createdAt: string;
+  }) {
+    return overrides;
+  }
+
+  it("sorts by fechaLimite ascending when every card has a due date", () => {
+    const tareas = [
+      makeTarea({
+        id: 1,
+        fechaLimite: "2026-08-10",
+        prioridad: null,
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+      makeTarea({
+        id: 2,
+        fechaLimite: "2026-08-05",
+        prioridad: null,
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+    ];
+    expect(sortTareasForBoard(tareas).map((t) => t.id)).toEqual([2, 1]);
+  });
+
+  it("cards with no fechaLimite sort AFTER every card that has one (nulls last)", () => {
+    const tareas = [
+      makeTarea({
+        id: 1,
+        fechaLimite: null,
+        prioridad: null,
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+      makeTarea({
+        id: 2,
+        fechaLimite: "2026-08-05",
+        prioridad: null,
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+    ];
+    expect(sortTareasForBoard(tareas).map((t) => t.id)).toEqual([2, 1]);
+  });
+
+  it("ties on fechaLimite break by prioridad rank: Alta before Media before Baja", () => {
+    const tareas = [
+      makeTarea({
+        id: 1,
+        fechaLimite: "2026-08-05",
+        prioridad: "Baja",
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+      makeTarea({
+        id: 2,
+        fechaLimite: "2026-08-05",
+        prioridad: "Alta",
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+      makeTarea({
+        id: 3,
+        fechaLimite: "2026-08-05",
+        prioridad: "Media",
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+    ];
+    expect(sortTareasForBoard(tareas).map((t) => t.id)).toEqual([2, 3, 1]);
+  });
+
+  it("ties on fechaLimite AND prioridad break by createdAt ascending", () => {
+    const tareas = [
+      makeTarea({
+        id: 1,
+        fechaLimite: null,
+        prioridad: "Alta",
+        createdAt: "2026-08-02T00:00:00Z",
+      }),
+      makeTarea({
+        id: 2,
+        fechaLimite: null,
+        prioridad: "Alta",
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+    ];
+    expect(sortTareasForBoard(tareas).map((t) => t.id)).toEqual([2, 1]);
+  });
+
+  it("an unrecognized prioridad value sorts AFTER the three known ranks, never throws", () => {
+    const tareas = [
+      makeTarea({
+        id: 1,
+        fechaLimite: "2026-08-05",
+        prioridad: "codigo_desconocido",
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+      makeTarea({
+        id: 2,
+        fechaLimite: "2026-08-05",
+        prioridad: "Baja",
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+    ];
+    expect(sortTareasForBoard(tareas).map((t) => t.id)).toEqual([2, 1]);
+  });
+
+  it("does not mutate the input array", () => {
+    const tareas = [
+      makeTarea({
+        id: 1,
+        fechaLimite: "2026-08-10",
+        prioridad: null,
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+      makeTarea({
+        id: 2,
+        fechaLimite: "2026-08-05",
+        prioridad: null,
+        createdAt: "2026-08-01T00:00:00Z",
+      }),
+    ];
+    sortTareasForBoard(tareas);
+    expect(tareas.map((t) => t.id)).toEqual([1, 2]);
   });
 });
