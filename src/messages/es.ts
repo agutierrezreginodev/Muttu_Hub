@@ -247,6 +247,7 @@ export const es = {
         "No hay tareas relacionadas (originadas en Kanban) para este cliente.",
     },
   },
+<<<<<<< HEAD
   documentos: {
     title: "Documentos",
     noEntries: "Todavía no hay documentos para este cliente.",
@@ -298,6 +299,16 @@ export const es = {
       emptyResultError: "No hay documentos disponibles para descargar.",
     },
     downloadError: "No se pudo descargar el archivo.",
+  },
+  kanban: {
+    nav: "Kanban",
+    title: "Tablero",
+    columnas: {
+      emptyState: "No hay tareas en esta columna.",
+    },
+    errors: {
+      etiquetaInactiva: "Esa etiqueta ya no está activa.",
+    },
   },
 } as const;
 

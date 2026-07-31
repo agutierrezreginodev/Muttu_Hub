@@ -1,0 +1,101 @@
+/**
+ * PURE, CLIENT-SAFE. ZERO server-only imports, by hard constraint.
+ *
+ * `src/lib/crm/catalogo-options.ts` documents a real bug this codebase
+ * already paid for: `"use client"` components (`tarea-card.tsx`,
+ * `mover-a-menu.tsx`, both landing in later slices) import
+ * `TERMINAL_COLUMNA_ESTADO` / `resolveEstadoOnMove` (slice 5b) directly from
+ * this file. If this module ever gains an import of a module that itself
+ * imports `@/lib/supabase/server` (which uses `next/headers`), that entire
+ * chain gets pulled into the client bundle and Next.js rejects the build.
+ * Any future edit to this file MUST NOT add such an import — client
+ * components must import from THIS file directly, never through a barrel
+ * that also re-exports server code.
+ *
+ * `resolveEstadoOnMove` (design part 1 §6's 9-row truth table) is deferred
+ * to slice 5b, once `moveTareaAction` exists to consume it — this slice only
+ * scaffolds the pure helpers `moveTareaAction` will not itself need until
+ * then: the catalog tipo constants, the terminal-column map, and the two
+ * board-render helpers (`fallbackColumna`, `groupTareasByColumna`).
+ */
+
+export const COLUMNA_TIPO = "columna_tablero" as const;
+export const ETIQUETA_TIPO = "etiqueta_tarea" as const;
+
+/**
+ * Reserved terminal column codes -> the `tarea.estado` they own (design D1,
+ * D5). The ONLY place this mapping exists. `codigo` is absent from
+ * `catalogo`'s UPDATE grant (`crm_catalogos.sql:82`), so an admin renaming a
+ * column's `etiqueta` can never break this map — it keys on `codigo`, never
+ * on the (renamable) display label.
+ */
+export const TERMINAL_COLUMNA_ESTADO = {
+  cumplido: "cumplido",
+  cancelado: "cancelado",
+} as const;
+
+export const REOPEN_ESTADO = "en_curso" as const;
+
+export type TerminalColumnaCodigo = keyof typeof TERMINAL_COLUMNA_ESTADO;
+
+export function isTerminalColumna(
+  codigo: string | null,
+): codigo is TerminalColumnaCodigo {
+  return codigo !== null && codigo in TERMINAL_COLUMNA_ESTADO;
+}
+
+interface ColumnaActiva {
+  codigo: string;
+}
+
+/**
+ * Spec KC3 / design D3: a `tarea` with `columna is null` renders in the
+ * lowest-`orden` ACTIVE column. Callers pass columns already ordered by
+ * `orden` (as `v_catalogo` itself returns them), so "first" here means
+ * exactly that — this function does no sorting of its own.
+ */
+export function fallbackColumna(columnasActivas: ColumnaActiva[]): string | null {
+  return columnasActivas[0]?.codigo ?? null;
+}
+
+interface TareaConColumna {
+  id: number;
+  columna: string | null;
+}
+
+/**
+ * Groups tareas by their `columna` for the board render (design part 2 §12,
+ * deferred to slice 4b's actual page — scaffolded here as a pure sibling of
+ * `fallbackColumna`). Guarantees:
+ *  - every ACTIVE column gets a bucket, even an empty one (so an empty
+ *    column still renders its header + empty state, per KB1);
+ *  - a `null` columna and the literal codigo of the fallback column land in
+ *    the SAME bucket (design D3's stated tradeoff: "any predicate meaning
+ *    'cards in the first column' must be `columna is null or columna =
+ *    <first>`" — this function IS that predicate, applied once, here);
+ *  - a tarea whose stored `columna` references a DEACTIVATED or otherwise
+ *    unknown code (not present in `columnasActivas`) still renders, folded
+ *    into the fallback bucket — a card is never silently dropped from the
+ *    board because an admin later deactivated the column it was sitting in.
+ */
+export function groupTareasByColumna<T extends TareaConColumna>(
+  tareas: T[],
+  columnasActivas: ColumnaActiva[],
+): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const columna of columnasActivas) {
+    groups.set(columna.codigo, []);
+  }
+
+  const fallback = fallbackColumna(columnasActivas);
+
+  for (const tarea of tareas) {
+    const targetCodigo = tarea.columna ?? fallback;
+    const bucket =
+      (targetCodigo !== null ? groups.get(targetCodigo) : undefined) ??
+      (fallback !== null ? groups.get(fallback) : undefined);
+    bucket?.push(tarea);
+  }
+
+  return groups;
+}

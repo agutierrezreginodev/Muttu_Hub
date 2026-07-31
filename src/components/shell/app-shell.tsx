@@ -43,6 +43,8 @@ interface AppShellProps {
   canAccessAdmin: boolean;
   /** UX only (task 6.11) — hides/shows the CRM link. Never the real gate: the actual gate is (app)/crm/layout.tsx's has_permission() RPC plus every RLS policy under that module. */
   canAccessCrm: boolean;
+  /** UX only (slice 4a) — hides/shows the Kanban link. Never the real gate: the actual gate is (app)/kanban/layout.tsx's has_permission() RPC plus every RLS policy on tarea and its child tables. */
+  canAccessKanban: boolean;
   children: React.ReactNode;
 }
 
@@ -57,6 +59,7 @@ export function AppShell({
   userEmail,
   canAccessAdmin,
   canAccessCrm,
+  canAccessKanban,
   children,
 }: AppShellProps) {
   useIdleLogout();
@@ -74,6 +77,14 @@ export function AppShell({
             <NavLink href="/crm" active={pathname.startsWith("/crm")}>
               {es.crm.nav}
             </NavLink>
+          ) : null}
+          {canAccessKanban ? (
+            <Link
+              href="/kanban"
+              className="flex h-11 min-h-11 items-center rounded-lg px-3 text-base hover:bg-muted"
+            >
+              {es.kanban.nav}
+            </Link>
           ) : null}
           {canAccessAdmin ? (
             <NavLink href="/admin" active={pathname.startsWith("/admin")}>
