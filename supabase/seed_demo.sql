@@ -314,12 +314,16 @@ begin
   select id into v_doc_propuesta_id from public.documento where cliente_id = v_cliente_a_id and nombre = 'Propuesta económica migración ERP' and deleted_at is null limit 1;
   select id into v_doc_onboarding_id from public.documento where cliente_id = v_cliente_a_id and nombre = 'Onboarding cliente — checklist inicial' and deleted_at is null limit 1;
 
-  -- Versiones: el primer doc tiene 2, los otros 1
+  -- Versiones: el primer doc tiene 2, los otros 1.
+  -- Los storage_path y size_bytes son placeholder que después se ajustan
+  -- con scripts/upload-demo-pdfs.ts. Aceptable que difieran al momento
+  -- del seed porque la app muestra size_bytes en MB redondeado y el delta
+  -- es invisible para la demo.
   insert into public.documento_version (documento_id, cliente_id, version, storage_bucket, storage_path, original_filename, size_bytes, mime_type, uploaded_by)
-  values (v_doc_contrato_id, v_cliente_a_id, 1, 'documentos', 'demo/' || v_cliente_a_id || '/' || v_doc_contrato_id || '/v1_contrato.pdf', 'contrato_grupo_andino_2026.pdf', 245678, 'application/pdf', v_admin_id),
-         (v_doc_contrato_id, v_cliente_a_id, 2, 'documentos', 'demo/' || v_cliente_a_id || '/' || v_doc_contrato_id || '/v2_contrato.pdf', 'contrato_grupo_andino_2026_v2.pdf', 248102, 'application/pdf', v_admin_id),
-         (v_doc_propuesta_id, v_cliente_a_id, 1, 'documentos', 'demo/' || v_cliente_a_id || '/' || v_doc_propuesta_id || '/v1_propuesta.pdf', 'propuesta_migracion_erp_v1.pdf', 189432, 'application/pdf', v_admin_id),
-         (v_doc_onboarding_id, v_cliente_a_id, 1, 'documentos', 'demo/' || v_cliente_a_id || '/' || v_doc_onboarding_id || '/v1_onboarding.pdf', 'onboarding_checklist.pdf', 67890, 'application/pdf', v_admin_id)
+  values (v_doc_contrato_id, v_cliente_a_id, 1, 'documentos', v_cliente_a_id || '/' || v_doc_contrato_id || '/1/v1_contrato.pdf', 'contrato_grupo_andino_2026.pdf', 2640, 'application/pdf', v_admin_id),
+         (v_doc_contrato_id, v_cliente_a_id, 2, 'documentos', v_cliente_a_id || '/' || v_doc_contrato_id || '/2/v2_contrato.pdf', 'contrato_grupo_andino_2026_v2.pdf', 2640, 'application/pdf', v_admin_id),
+         (v_doc_propuesta_id, v_cliente_a_id, 1, 'documentos', v_cliente_a_id || '/' || v_doc_propuesta_id || '/1/v1_propuesta.pdf', 'propuesta_migracion_erp_v1.pdf', 2747, 'application/pdf', v_admin_id),
+         (v_doc_onboarding_id, v_cliente_a_id, 1, 'documentos', v_cliente_a_id || '/' || v_doc_onboarding_id || '/1/v1_onboarding.pdf', 'onboarding_checklist.pdf', 2538, 'application/pdf', v_admin_id)
   on conflict do nothing;
 
   -- ---------------------------------------------------------------------
