@@ -92,10 +92,10 @@ select throws_ok(
     values ((select id from public.rol where nombre = 'Colaborador'), 'legal')$$,
   '42501', null, 'colaborador cannot INSERT a grant (admin.editar required)');
 
-select throws_ok(
-  $$delete from public.documento_categoria_permiso
-    where rol_id = (select id from public.rol where nombre = 'Coordinador') and categoria = 'contratos'$$,
-  '42501', null, 'colaborador cannot DELETE a grant (admin.editar required)');
+with d as (delete from public.documento_categoria_permiso
+    where rol_id = (select id from public.rol where nombre = 'Coordinador') and categoria = 'contratos' returning 1)
+select ok((select count(*) = 0 from d),
+  'colaborador cannot DELETE a grant (admin.editar required -- 0 rows affected, USING-only RLS denial)');
 
 -- 9-10: administrador (admin.editar) CAN insert and delete grants.
 set local request.jwt.claims to '{"sub":"61616161-6161-6161-6161-616161616161"}';
