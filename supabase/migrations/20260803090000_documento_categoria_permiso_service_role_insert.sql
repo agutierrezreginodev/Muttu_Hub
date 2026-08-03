@@ -1,0 +1,24 @@
+-- Follow-up migration to close the service_role grant gap on
+-- public.documento_categoria_permiso -- the table's original migration
+-- (20260730120000_documentos_categoria_permiso.sql) granted service_role
+-- SELECT only, omitting INSERT. service_role has rolbypassrls=true (it
+-- skips RLS policies) but BYPASSRLS does NOT skip ordinary
+-- table-privilege checks -- GRANTs are still required (the exact class of
+-- gap that 20260728050000_service_role_grants.sql was written to fix for
+-- the platform's 5 base tables: rol, usuario, cliente, tarea,
+-- registro_acceso). Without this INSERT grant, every service-role code
+-- path that writes to documento_categoria_permiso fails with
+-- "permission denied for table documento_categoria_permiso".
+--
+-- The gap was hidden for the whole documentos-module PR chain because the
+-- e2e suite was gated on the (previously failing) pgTAP job; once pgtap
+-- turned green (after the three pgTAP test-bug fixes A/B/C), e2e ran for
+-- the first time and surfaced this in setUpDocumentosFixtures ->
+-- ensureGrant -> upsert(documento_categoria_permiso).
+--
+-- Mirrors the convention established by 20260728050000_service_role_grants.sql:
+-- both INSERT and SELECT granted to service_role (insert for writes, select
+-- for reads), keeping service_role usable for both fixture bootstrap and
+-- any future server-side admin script that seeds grants via service_role.
+
+grant insert on public.documento_categoria_permiso to service_role;
