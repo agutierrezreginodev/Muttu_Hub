@@ -75,6 +75,31 @@ docker exec -i "$DB_CONTAINER" \
 - [ ] The final SELECT shows: 3 clientes, 5 contactos, 3 oportunidades, 3 documentos, 13 tareas
 - [ ] If you re-run it, no errors (it's idempotent by name)
 
+## 2.6. Upload the demo PDFs (1 min)
+
+The seed creates the `documento` + `documento_version` rows but does NOT
+upload actual files to the `documentos` Storage bucket. Without this step
+the document download returns 404. Generate and upload 4 PDFs:
+
+```bash
+# Install pdfkit as a temporary dev dep (NOT committed to package.json)
+pnpm add -D pdfkit
+
+# Run the upload script
+eval "$(supabase status -o env)"
+SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
+  NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
+  pnpm tsx scripts/upload-demo-pdfs.ts
+
+# Optional cleanup (revert package.json + pnpm-lock.yaml)
+pnpm remove pdfkit
+git checkout pnpm-lock.yaml
+```
+
+- [ ] Output shows: 4 PDFs subidos, 4 paths actualizados
+- [ ] Open the browser, log in, navigate Documentos → click download on any
+  doc → browser opens a real PDF (not a 404)
+
 ## 3. Seed the demo data (15 min)
 
 There is no `pnpm seed:demo` script. The app starts empty after
