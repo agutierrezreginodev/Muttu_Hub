@@ -118,6 +118,15 @@ export const es = {
     eventReactivacion: "Reactivación",
     forbidden: "No tenés acceso a esta sección.",
     catalogosDescription: "Administrar los códigos de las listas del CRM.",
+    categoryGrants: {
+      title: "Permisos por categoría de documento",
+      description: "Definí qué categorías de documento puede ver cada rol.",
+      rol: "Rol",
+      noCategories:
+        "Primero creá códigos de catálogo del tipo categoria_documento.",
+      grantSuccess: "Permiso otorgado.",
+      revokeSuccess: "Permiso quitado.",
+    },
     catalogos: {
       title: "Catálogos",
       createCatalogo: "Crear código",
@@ -163,6 +172,7 @@ export const es = {
       compromisos: "Compromisos",
       bitacora: "Bitácora",
       tareas: "Tareas relacionadas",
+      documentos: "Documentos",
     },
     general: {
       empresa: "Empresa",
@@ -236,6 +246,58 @@ export const es = {
       noEntries:
         "No hay tareas relacionadas (originadas en Kanban) para este cliente.",
     },
+  },
+  documentos: {
+    title: "Documentos",
+    noEntries: "Todavía no hay documentos para este cliente.",
+    nombre: "Nombre",
+    categoria: "Categoría",
+    descripcion: "Descripción",
+    tags: "Etiquetas",
+    version: "Versión",
+    tamano: "Tamaño",
+    tipoArchivo: "Tipo de archivo",
+    subidoPor: "Subido por",
+    fechaSubida: "Fecha de subida",
+    download: "Descargar",
+    selectRow: "Seleccionar",
+    upload: {
+      button: "Subir documento",
+      title: "Subir documento",
+      file: "Archivo",
+      submit: "Subir",
+      success: "Documento subido.",
+      categoryDeniedError: "No tenés acceso a esa categoría.",
+    },
+    newVersion: {
+      button: "Subir nueva versión",
+      title: "Subir nueva versión",
+      success: "Nueva versión subida.",
+    },
+    versionHistory: {
+      title: "Historial de versiones",
+      noEntries: "Todavía no hay versiones para este documento.",
+    },
+    edit: {
+      title: "Editar documento",
+      success: "Documento actualizado.",
+    },
+    delete: {
+      confirmTitle: "¿Eliminar este documento?",
+      confirmDescription:
+        "Esta acción no se puede deshacer. Los archivos ya subidos se conservan.",
+      success: "Documento eliminado.",
+    },
+    zip: {
+      button: "Descargar seleccionados (.zip)",
+      preparing: "Preparando descarga…",
+      noSelectionError: "Seleccioná al menos un documento.",
+      tooManyError: "Seleccionaste demasiados documentos. Probá con menos.",
+      tooLargeError:
+        "La selección es demasiado grande. Probá con menos documentos.",
+      emptyResultError: "No hay documentos disponibles para descargar.",
+    },
+    downloadError: "No se pudo descargar el archivo.",
   },
 } as const;
 

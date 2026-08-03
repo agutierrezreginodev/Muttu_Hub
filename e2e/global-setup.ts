@@ -9,7 +9,14 @@ import {
   E2E_ADMIN_EMAIL,
   E2E_ADMIN_PASSWORD,
   ADMIN_STORAGE_STATE_PATH,
+  E2E_DOC_DENIED_EMAIL,
+  E2E_DOC_DENIED_PASSWORD,
+  DOC_DENIED_STORAGE_STATE_PATH,
+  E2E_DOC_NOEXPORT_EMAIL,
+  E2E_DOC_NOEXPORT_PASSWORD,
+  DOC_NOEXPORT_STORAGE_STATE_PATH,
 } from "./env";
+import { setUpDocumentosFixtures } from "./utils/documentos-fixtures";
 
 /**
  * Next.js dev mode compiles each route on-demand, on first request — 10s+
@@ -97,6 +104,10 @@ export default async function globalSetup(): Promise<void> {
     }
   }
 
+  // Documentos fixtures (PR8, task 8.1): category code, grants, and the two
+  // extra users that isolate the category axis and the exportar verb.
+  await setUpDocumentosFixtures(supabase, rol.id);
+
   await Promise.all(
     [
       `${APP_URL}/login`,
@@ -117,20 +128,53 @@ export default async function globalSetup(): Promise<void> {
       `${APP_URL}/crm/1/compromisos`,
       `${APP_URL}/crm/1/bitacora`,
       `${APP_URL}/crm/1/tareas`,
+      // PR8: the documentos tab and its Route Handlers, plus the admin
+      // category-grant screen (PR7). Same reasoning as the /crm/1/* entries —
+      // dev mode compiles per route FILE, so a placeholder id warms the bundle.
+      `${APP_URL}/crm/1/documentos`,
+      `${APP_URL}/admin/documentos`,
       `${IDLE_APP_URL}/login`,
       `${IDLE_APP_URL}/`,
     ].map(warmUpRoute),
   );
 
   const browser = await chromium.launch();
-  const page = await browser.newPage({ baseURL: APP_URL });
 
-  await page.goto(`${APP_URL}/login`);
-  await page.fill("#email", E2E_ADMIN_EMAIL);
-  await page.fill("#password", E2E_ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Ingresar" }).click();
-  await page.waitForURL(`${APP_URL}/`, { timeout: 15_000 });
+  /**
+   * One saved session per fixture user. Each is a REAL /login round trip
+   * rather than a hand-rolled cookie, so the stored state is whatever the app
+   * itself issues.
+   */
+  async function saveSession(
+    email: string,
+    password: string,
+    path: string,
+  ): Promise<void> {
+    const page = await browser.newPage({ baseURL: APP_URL });
+    await page.goto(`${APP_URL}/login`);
+    await page.fill("#email", email);
+    await page.fill("#password", password);
+    await page.getByRole("button", { name: "Ingresar" }).click();
+    await page.waitForURL(`${APP_URL}/`, { timeout: 15_000 });
+    await page.context().storageState({ path });
+    await page.close();
+  }
 
-  await page.context().storageState({ path: ADMIN_STORAGE_STATE_PATH });
+  await saveSession(
+    E2E_ADMIN_EMAIL,
+    E2E_ADMIN_PASSWORD,
+    ADMIN_STORAGE_STATE_PATH,
+  );
+  await saveSession(
+    E2E_DOC_DENIED_EMAIL,
+    E2E_DOC_DENIED_PASSWORD,
+    DOC_DENIED_STORAGE_STATE_PATH,
+  );
+  await saveSession(
+    E2E_DOC_NOEXPORT_EMAIL,
+    E2E_DOC_NOEXPORT_PASSWORD,
+    DOC_NOEXPORT_STORAGE_STATE_PATH,
+  );
+
   await browser.close();
 }

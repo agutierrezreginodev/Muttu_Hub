@@ -35,6 +35,11 @@ const sections = [
     title: es.admin.catalogos.title,
     description: es.admin.catalogosDescription,
   },
+  {
+    href: "/admin/documentos",
+    title: es.admin.categoryGrants.title,
+    description: es.admin.categoryGrants.description,
+  },
 ];
 
 /**
