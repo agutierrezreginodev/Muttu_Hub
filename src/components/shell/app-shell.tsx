@@ -1,10 +1,40 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { useIdleLogout } from "@/lib/idle/use-idle-logout";
 import { es } from "@/messages/es";
+import { cn } from "@/lib/utils";
+import { Logo } from "@/components/brand/logo";
 import { UserMenu } from "@/components/shell/user-menu";
+
+/**
+ * Nav link with the brand "riel" active-state indicator: a 3px rose-500
+ * pill bar to the left of the link, plus rose-50/rose-700 active colors.
+ */
+function NavLink({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "relative flex h-11 min-h-11 items-center rounded-lg px-3 text-base hover:bg-muted",
+        active &&
+          "font-semibold text-rose-700 bg-rose-50 hover:bg-rose-50 before:absolute before:top-1/2 before:left-[-18px] before:h-[19px] before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-rose-500 before:content-['']",
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
 
 interface AppShellProps {
   userNombre: string;
@@ -30,27 +60,25 @@ export function AppShell({
   children,
 }: AppShellProps) {
   useIdleLogout();
+  const pathname = usePathname();
 
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex h-16 items-center justify-between border-b px-4">
-        <span className="text-base font-semibold">{es.common.appName}</span>
+        <div className="flex items-center gap-2">
+          <Logo className="h-7 w-auto" />
+          <span className="text-base font-semibold">{es.common.appName}</span>
+        </div>
         <nav className="flex items-center gap-2">
           {canAccessCrm ? (
-            <Link
-              href="/crm"
-              className="flex h-11 min-h-11 items-center rounded-lg px-3 text-base hover:bg-muted"
-            >
+            <NavLink href="/crm" active={pathname.startsWith("/crm")}>
               {es.crm.nav}
-            </Link>
+            </NavLink>
           ) : null}
           {canAccessAdmin ? (
-            <Link
-              href="/admin"
-              className="flex h-11 min-h-11 items-center rounded-lg px-3 text-base hover:bg-muted"
-            >
+            <NavLink href="/admin" active={pathname.startsWith("/admin")}>
               {es.admin.nav}
-            </Link>
+            </NavLink>
           ) : null}
           <UserMenu nombre={userNombre} email={userEmail} />
         </nav>
