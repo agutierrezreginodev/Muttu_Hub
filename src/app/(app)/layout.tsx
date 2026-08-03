@@ -38,6 +38,9 @@ export default async function AppLayout({
   const canAccessCrm = sessionContext
     ? hasPermission(sessionContext.permisos, "crm", "ver")
     : false;
+  const canAccessKanban = sessionContext
+    ? hasPermission(sessionContext.permisos, "kanban", "ver")
+    : false;
 
   return (
     <AppShell
@@ -45,6 +48,7 @@ export default async function AppLayout({
       userEmail={sessionContext?.email ?? user.email ?? ""}
       canAccessAdmin={canAccessAdmin}
       canAccessCrm={canAccessCrm}
+      canAccessKanban={canAccessKanban}
     >
       {children}
     </AppShell>

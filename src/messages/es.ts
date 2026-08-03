@@ -299,6 +299,16 @@ export const es = {
     },
     downloadError: "No se pudo descargar el archivo.",
   },
+  kanban: {
+    nav: "Kanban",
+    title: "Tablero",
+    columnas: {
+      emptyState: "No hay tareas en esta columna.",
+    },
+    errors: {
+      etiquetaInactiva: "Esa etiqueta ya no está activa.",
+    },
+  },
 } as const;
 
 export type Messages = typeof es;
