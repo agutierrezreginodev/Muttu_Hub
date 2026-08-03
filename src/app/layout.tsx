@@ -6,17 +6,17 @@ import { Toaster } from "@/components/ui/toast";
 import { es } from "@/messages/es";
 
 const fontDisplay = Bricolage_Grotesque({
-  variable: "--font-display",
+  variable: "--font-display-raw",
   subsets: ["latin"],
 });
 
 const fontSans = Instrument_Sans({
-  variable: "--font-sans",
+  variable: "--font-sans-raw",
   subsets: ["latin"],
 });
 
 const fontMono = JetBrains_Mono({
-  variable: "--font-mono",
+  variable: "--font-mono-raw",
   subsets: ["latin"],
 });
 
@@ -34,10 +34,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      <body
-        className={`${fontDisplay.variable} ${fontSans.variable} ${fontMono.variable} antialiased`}
-      >
+    <html
+      lang="es"
+      className={`${fontDisplay.variable} ${fontSans.variable} ${fontMono.variable}`}
+    >
+      <body className="antialiased">
         <Toaster>{children}</Toaster>
       </body>
     </html>
