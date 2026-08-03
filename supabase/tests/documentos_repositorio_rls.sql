@@ -123,11 +123,14 @@ select throws_ok(
   $$insert into public.documento (cliente_id, nombre, categoria) values (712, 'Doc Cliente Invisible', 'contratos')$$,
   '42501', null, 'coordinador cannot INSERT for a cliente they cannot see (soft-deleted)');
 
+reset role;
+
+-- Superuser bypass: under RLS the WITH CHECK would raise 42501 first and
+-- mask the NOT NULL constraint. Bypassing isolates the constraint itself,
+-- same pattern as the FK test below.
 select throws_ok(
   $$insert into public.documento (cliente_id, nombre) values (711, 'Sin Categoria')$$,
   '23502', null, 'documento.categoria is NOT NULL -- omitting it rejects the insert');
-
-reset role;
 
 -- Superuser bypass: an unlisted category can never hold a grant either (its
 -- own FK requires the code to exist), so under RLS this would show 42501
