@@ -157,13 +157,15 @@ with u as (
 select ok((select count(*) = 0 from u),
   'coordinador cannot UPDATE a storage object it can otherwise SELECT (no UPDATE policy)');
 
-with d as (
-  delete from storage.objects
-  where bucket_id = 'documentos' and name = '740/970/1/contrato.pdf'
-  returning 1
-)
-select ok((select count(*) = 0 from d),
-  'coordinador cannot DELETE a storage object it can otherwise SELECT (no DELETE policy)');
+-- Supabase now installs storage.protect_delete() as a BEFORE-DELETE trigger
+-- on storage.objects that RAISEs unconditionally ("Direct deletion from
+-- storage tables is not allowed"). The previous writable-CTE-count=0
+-- assumption ("no DELETE policy -> 0 rows") is unreachable because the
+-- trigger fires before any policy/grant evaluation. dies_ok captures the
+-- trigger exception without brittle coupling to its RAISE SQLSTATE.
+select dies_ok(
+  $$delete from storage.objects where bucket_id = 'documentos' and name = '740/970/1/contrato.pdf'$$,
+  'coordinador cannot directly DELETE a storage object (storage.protect_delete() trigger blocks all direct deletes)');
 
 reset role;
 
