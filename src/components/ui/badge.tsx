@@ -24,7 +24,8 @@ const badgeVariants = cva(
         activo: "bg-rose-50 text-rose-700 [a]:hover:bg-rose-100",
         exito: "bg-exito-bg text-exito [a]:hover:bg-exito-bg",
         alerta: "bg-alerta-bg text-alerta [a]:hover:bg-alerta-bg",
-        riesgo: "bg-destructivo-bg text-destructivo [a]:hover:bg-destructivo-bg",
+        riesgo:
+          "bg-destructivo-bg text-destructivo [a]:hover:bg-destructivo-bg",
         info: "bg-info-bg text-info [a]:hover:bg-info-bg",
       },
     },
