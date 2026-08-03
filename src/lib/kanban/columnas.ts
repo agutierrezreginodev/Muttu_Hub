@@ -99,3 +99,69 @@ export function groupTareasByColumna<T extends TareaConColumna>(
 
   return groups;
 }
+
+/**
+ * `prioridad`'s exact seeded `orden` (design part 2 §12's ranking; catalog
+ * seed at supabase/migrations/20260728182944_crm_catalogos.sql:118-120).
+ * This is data-shaped, not schema-shaped: `codigo` is immutable, but a
+ * catalog is otherwise app-layer content, so this map is a deliberate,
+ * documented coupling to the SEED VALUES ONLY — an admin cannot rename
+ * `prioridad` codes (`codigo` is absent from the UPDATE grant) so this
+ * cannot silently drift.
+ */
+const PRIORIDAD_ORDEN: Record<string, number> = {
+  Alta: 0,
+  Media: 1,
+  Baja: 2,
+};
+
+interface TareaOrdenable {
+  fechaLimite: string | null;
+  prioridad: string | null;
+  createdAt: string;
+}
+
+function fechaRank(fechaLimite: string | null): number {
+  // Number.MAX_SAFE_INTEGER, NOT Number.POSITIVE_INFINITY: two "sin fecha"
+  // cards must compare as a genuine tie (rank - rank === 0) so the
+  // prioridad/createdAt tie-breaks below actually run. Infinity - Infinity
+  // is NaN, which Array.prototype.sort silently treats as "no swap" —
+  // exactly the bug this comment prevents a future edit from reintroducing.
+  return fechaLimite
+    ? new Date(fechaLimite).getTime()
+    : Number.MAX_SAFE_INTEGER;
+}
+
+function prioridadRank(prioridad: string | null): number {
+  if (prioridad === null) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return PRIORIDAD_ORDEN[prioridad] ?? Number.MAX_SAFE_INTEGER;
+}
+
+/**
+ * Card order within a column (design part 2 §12): `fecha_limite` asc (nulls
+ * LAST) -> `prioridad` (Alta, Media, Baja) -> `created_at` asc. Pure, so no
+ * query/mock is needed to exercise it — v1 has no manual reorder
+ * (`posicion` column), so this predicate alone decides a column's card
+ * order. Returns a NEW array; the input is never mutated (callers may reuse
+ * the same `groupTareasByColumna` bucket for re-renders).
+ */
+export function sortTareasForBoard<T extends TareaOrdenable>(
+  tareas: T[],
+): T[] {
+  return [...tareas].sort((a, b) => {
+    const fechaDiff = fechaRank(a.fechaLimite) - fechaRank(b.fechaLimite);
+    if (fechaDiff !== 0) {
+      return fechaDiff;
+    }
+
+    const prioridadDiff =
+      prioridadRank(a.prioridad) - prioridadRank(b.prioridad);
+    if (prioridadDiff !== 0) {
+      return prioridadDiff;
+    }
+
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
+}

@@ -86,6 +86,14 @@ export function AppShell({
               {es.kanban.nav}
             </Link>
           ) : null}
+          {canAccessKanban ? (
+            <Link
+              href="/kanban"
+              className="flex h-11 min-h-11 items-center rounded-lg px-3 text-base hover:bg-muted"
+            >
+              {es.kanban.nav}
+            </Link>
+          ) : null}
           {canAccessAdmin ? (
             <NavLink href="/admin" active={pathname.startsWith("/admin")}>
               {es.admin.nav}

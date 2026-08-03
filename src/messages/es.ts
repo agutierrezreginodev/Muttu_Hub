@@ -305,6 +305,10 @@ export const es = {
     columnas: {
       emptyState: "No hay tareas en esta columna.",
     },
+    tarjeta: {
+      vencida: "Vencida",
+      sinFecha: "Sin fecha",
+    },
     errors: {
       etiquetaInactiva: "Esa etiqueta ya no está activa.",
     },
