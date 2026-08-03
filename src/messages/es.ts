@@ -247,7 +247,6 @@ export const es = {
         "No hay tareas relacionadas (originadas en Kanban) para este cliente.",
     },
   },
-<<<<<<< HEAD
   documentos: {
     title: "Documentos",
     noEntries: "Todavía no hay documentos para este cliente.",
