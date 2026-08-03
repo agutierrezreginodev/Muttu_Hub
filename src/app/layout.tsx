@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 import { Toaster } from "@/components/ui/toast";
 import { es } from "@/messages/es";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const fontDisplay = Bricolage_Grotesque({
+  variable: "--font-display",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const fontSans = Instrument_Sans({
+  variable: "--font-sans",
+  subsets: ["latin"],
+});
+
+const fontMono = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: es.common.appName,
   description: es.common.appName,
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({
@@ -28,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${fontDisplay.variable} ${fontSans.variable} ${fontMono.variable} antialiased`}
       >
         <Toaster>{children}</Toaster>
       </body>

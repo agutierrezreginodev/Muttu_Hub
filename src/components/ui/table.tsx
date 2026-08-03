@@ -52,12 +52,18 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   );
 }
 
+/**
+ * Selected-row "riel" treatment: consumers mark a row selected via
+ * `data-state="selected"` (the existing shadcn convention). That drives a
+ * rose-50 row background plus a 3px inset rose-500 bar on the row's first
+ * cell — the same riel pattern used for the active nav link.
+ */
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b transition-colors hover:bg-ink-50 has-aria-expanded:bg-ink-50 data-[state=selected]:bg-rose-50 data-[state=selected]:[&>*:first-child]:shadow-[inset_3px_0_0_var(--color-rose-500)]",
         className,
       )}
       {...props}
