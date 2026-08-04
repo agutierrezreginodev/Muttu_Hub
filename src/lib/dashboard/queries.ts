@@ -585,7 +585,8 @@ export async function getMisClientes(): Promise<number> {
   return data?.mis_clientes ?? 0;
 }
 
-const NON_TERMINAL_ESTADOS_MI_RESUMEN = new Set(["cumplido", "cancelado"]);
+/** The two estados that CLOSE a tarea. Everything else counts as open. */
+const TERMINAL_ESTADOS_MI_RESUMEN = new Set(["cumplido", "cancelado"]);
 const COMPROMISO_ORIGENES = new Set(["CRM", "Ambos"]);
 
 /**
@@ -611,7 +612,7 @@ export function sumMisCompromisos(rows: MiResumenTareaRow[]): number {
     .filter(
       (row) =>
         COMPROMISO_ORIGENES.has(row.origen) &&
-        !NON_TERMINAL_ESTADOS_MI_RESUMEN.has(row.estado),
+        !TERMINAL_ESTADOS_MI_RESUMEN.has(row.estado),
     )
     .reduce((sum, row) => sum + row.tareas, 0);
 }

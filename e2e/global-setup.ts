@@ -154,8 +154,7 @@ export default async function globalSetup(): Promise<void> {
   /**
    * Pass 2 — the same list, replayed with a real session's cookies so the
    * GATED routes finally compile. `context.request` inherits the context's
-   * cookies, and auth cookies here are host-scoped rather than port-scoped, so
-   * one admin session warms both webServer instances.
+   * cookies, which is what makes this pass different from the cookie-less one.
    */
   async function warmUpAuthenticated(storageStatePath: string): Promise<void> {
     const context = await browser.newContext({
@@ -217,7 +216,7 @@ export default async function globalSetup(): Promise<void> {
           if (attempt < LOGIN_ATTEMPTS) continue;
 
           // Last attempt: surface whatever the form itself said, so a genuine
-          // credential problem is never misreported as dev-server latency.
+          // credential problem is never misreported as an infrastructure delay.
           const formError = await page
             .getByRole("alert")
             .first()
@@ -230,9 +229,11 @@ export default async function globalSetup(): Promise<void> {
               (formError?.trim()
                 ? `The login form reported: "${formError.trim()}" — check this ` +
                   `fixture user's credentials.`
-                : `The form showed no error, so this is most likely dev-server ` +
-                  `compile latency — raise LOGIN_NAVIGATION_TIMEOUT_MS or read ` +
-                  `the webServer output above.`) +
+                : `The form showed no error, so the submission never completed. ` +
+                  `Against CI's production server there is no compile step left ` +
+                  `to blame: suspect the login redirect or session handling, and ` +
+                  `read the webServer output above. Only on a LOCAL dev server ` +
+                  `(reuseExistingServer) is compile latency a plausible cause.`) +
               ` Underlying: ${(navigationError as Error).message}`,
           );
         }
