@@ -1,8 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-import { ADMIN_STORAGE_STATE_PATH } from "./env";
+import { IDLE_STORAGE_STATE_PATH } from "./env";
 
-test.use({ storageState: ADMIN_STORAGE_STATE_PATH });
+// Its OWN session, never the shared admin one: the sign-out below is global and
+// would revoke that user's session for every spec that runs after this file.
+// See e2e/env.ts for the failure this prevents.
+test.use({ storageState: IDLE_STORAGE_STATE_PATH });
 
 /**
  * Far past any plausible `NEXT_PUBLIC_IDLE_TIMEOUT_MINUTES` (the shipped

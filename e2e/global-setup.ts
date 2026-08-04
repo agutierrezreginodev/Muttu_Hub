@@ -14,6 +14,9 @@ import {
   E2E_DOC_NOEXPORT_EMAIL,
   E2E_DOC_NOEXPORT_PASSWORD,
   DOC_NOEXPORT_STORAGE_STATE_PATH,
+  E2E_IDLE_EMAIL,
+  E2E_IDLE_PASSWORD,
+  IDLE_STORAGE_STATE_PATH,
 } from "./env";
 import { setUpDocumentosFixtures } from "./utils/documentos-fixtures";
 
@@ -112,6 +115,45 @@ export default async function globalSetup(): Promise<void> {
       throw new Error(
         `E2E global-setup: admin auth user created but usuario insert ` +
           `failed: ${insertError.message}`,
+      );
+    }
+  }
+
+  // Idle fixture: a user nothing else touches, because idle-logout's signOut()
+  // revokes EVERY session of whoever it runs as (see e2e/env.ts). Same
+  // idempotent lookup-then-create posture as every other fixture here.
+  const { data: existingIdleUsuario } = await supabase
+    .from("usuario")
+    .select("id")
+    .eq("email", E2E_IDLE_EMAIL)
+    .maybeSingle();
+
+  if (!existingIdleUsuario) {
+    const { data: createdIdle, error: createIdleError } =
+      await supabase.auth.admin.createUser({
+        email: E2E_IDLE_EMAIL,
+        password: E2E_IDLE_PASSWORD,
+        email_confirm: true,
+      });
+
+    if (createIdleError || !createdIdle?.user) {
+      throw new Error(
+        `E2E global-setup: failed to create the idle fixture user: ` +
+          `${createIdleError?.message ?? "unknown error"}`,
+      );
+    }
+
+    const { error: insertIdleError } = await supabase.from("usuario").insert({
+      id: createdIdle.user.id,
+      nombre: "E2E Idle",
+      email: E2E_IDLE_EMAIL,
+      rol_id: rol.id,
+    });
+
+    if (insertIdleError) {
+      throw new Error(
+        `E2E global-setup: idle auth user created but usuario insert ` +
+          `failed: ${insertIdleError.message}`,
       );
     }
   }
@@ -265,6 +307,9 @@ export default async function globalSetup(): Promise<void> {
     E2E_DOC_NOEXPORT_PASSWORD,
     DOC_NOEXPORT_STORAGE_STATE_PATH,
   );
+  // Last, and deliberately its own user: idle-logout signs this session out
+  // globally, so it must not be a session any other spec depends on.
+  await saveSession(E2E_IDLE_EMAIL, E2E_IDLE_PASSWORD, IDLE_STORAGE_STATE_PATH);
 
   await browser.close();
 }
