@@ -5,23 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import type { Accion, Modulo } from "@/lib/permissions";
 import { buildZipEntryNames } from "@/lib/documentos/zip-entries";
 
+// Route Handlers may only export Next's own named fields, so the export bounds
+// live in ./limits — see that file for the build error this avoids.
+import { MAX_ZIP_DOCUMENTS, MAX_ZIP_TOTAL_BYTES } from "./limits";
+
 export const runtime = "nodejs";
 
 const BUCKET = "documentos";
-
-/**
- * Bounds required by spec document-zip-export "Streaming assembly with bounds".
- * The specific numbers are open question 7, still unresolved by the owner — the
- * spec mandates that a cap exist, so these are deliberate, documented defaults
- * rather than invented product limits, and both are exported so the tests (and
- * a future owner decision) reference the constant instead of a literal.
- *
- * Because the archive STREAMS, memory is bounded by chunk size rather than by
- * total size; what these protect is the serverless function's wall-clock
- * budget, which is why the count cap is the tighter of the two.
- */
-export const MAX_ZIP_DOCUMENTS = 50;
-export const MAX_ZIP_TOTAL_BYTES = 200 * 1024 * 1024;
 
 interface CurrentVersion {
   storagePath: string;
