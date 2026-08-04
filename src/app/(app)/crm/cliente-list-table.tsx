@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Users } from "lucide-react";
 
 import { es } from "@/messages/es";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -24,7 +26,12 @@ interface ClienteListTableProps {
  */
 export function ClienteListTable({ rows }: ClienteListTableProps) {
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">{es.crm.noResults}</p>;
+    return (
+      <EmptyState
+        icon={<Users className="size-6" />}
+        title={es.crm.noResults}
+      />
+    );
   }
 
   return (

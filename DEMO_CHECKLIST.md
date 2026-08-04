@@ -7,7 +7,10 @@ graceful fallback for the client call.
 ## 0. Pre-flight (5 min)
 
 - [ ] `git status` — you are on `main`, working tree clean
-- [ ] `git log -1 --format="%H %s"` — last commit starts with `merge: feat/kanban-module-pr4b-board-render into main`
+- [ ] `git log -1 --format="%H %s"` — last commit starts with `docs(demo): add step 2.6 for upload-demo-pdfs.ts`
+- [ ] `GUIA_DE_USO.md` and `DEMO_VIDEO_SCRIPT.md` are committed (currently
+      untracked on disk — commit them or the client-facing docs won't survive
+      a fresh clone)
 - [ ] Docker is running (`docker ps` shows at least one container)
 - [ ] No other `next dev` running on port 3000 (`lsof -i:3000` empty)
 
@@ -39,13 +42,20 @@ yourself before anyone can log in.
 eval "$(supabase status -o env)"
 
 # Invite the first admin
+# NEXT_PUBLIC_SITE_URL defaults to http://127.0.0.1:3000 if unset — only
+# pass it explicitly if you're demoing from a different host/port (e.g. a
+# Vercel preview URL). It controls where the invite link redirects the
+# invitee back to (auth/callback → /actualizar-clave).
 SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" \
   NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
   pnpm bootstrap:admin --email demo.admin@muttu.local --nombre "Admin Demo"
 ```
 
 The script invites by email. The invite email lands in **Mailpit**
-(http://127.0.0.1:54324) — Supabase's local mailer.
+(http://127.0.0.1:54324) — Supabase's local mailer. The invite link now
+redirects through `/auth/callback?next=/actualizar-clave` so you land on
+the "set password" form directly (fixed — it previously dropped you on an
+authenticated home page with no password set).
 
 - [ ] Open http://127.0.0.1:54324
 - [ ] Click the invite email
@@ -123,7 +133,8 @@ later by inviting a second user with a non-admin role from the admin panel.
 ## 4. Pre-demo sanity (5 min)
 
 ```bash
-# Run the test suite — must be 332/332 green
+# Run the test suite — count grew past 332 with the new home KPI tests
+# (src/lib/home/queries.test.ts); confirm 100% green, not the old number
 pnpm test
 
 # Typecheck must be clean
@@ -134,6 +145,12 @@ pnpm lint
 ```
 
 - [ ] Open http://localhost:3000 — log in
+- [ ] Home page shows the 5 KPI cards (Clientes activos, Oportunidades
+      abiertas, Tareas pendientes, Tareas vencidas, Documentos) with real
+      numbers — not all "—" (a "—" on every card usually means demo data
+      wasn't seeded yet, not a broken query)
+- [ ] Nav bar shows **Inicio** as its own link, and Kanban appears only
+      ONCE (a duplicate-link bug there was just fixed)
 - [ ] Navigate CRM → pick a cliente → ficha opens
 - [ ] Navigate Documentos on a cliente → tabla loads
 - [ ] Navigate Kanban → tablero loads with your seeded tareas
@@ -154,14 +171,15 @@ pnpm lint
 
 ## 6. Things that WILL break the demo if you forget
 
-| Symptom                                 | Cause                          | Fix                                   |
-| --------------------------------------- | ------------------------------ | ------------------------------------- |
-| Login fails with "Invalid credentials"  | Admin invite link not opened   | Re-open Mailpit, click the link       |
-| Tablero Kanban empty                    | No kanban tareas seeded        | Create them as admin                  |
-| "Could not find the Administrador role" | `supabase db reset` not run    | Run it                                |
-| `pnpm dev` fails on port 3000           | Old `next dev` still running   | `lsof -i:3000` then `kill <pid>`      |
-| Documentos upload returns 500           | Storage bucket not initialized | `supabase db reset` reapplies storage |
-| Type errors on a page                   | Migration not applied          | `supabase db reset`                   |
+| Symptom                                 | Cause                                               | Fix                                   |
+| --------------------------------------- | --------------------------------------------------- | ------------------------------------- |
+| Login fails with "Invalid credentials"  | Admin invite link not opened                        | Re-open Mailpit, click the link       |
+| Tablero Kanban empty                    | No kanban tareas seeded                             | Create them as admin                  |
+| Home KPI cards all show "—"             | No demo data seeded, or role's RLS blocks the views | Re-run `seed_demo.sql` as admin       |
+| "Could not find the Administrador role" | `supabase db reset` not run                         | Run it                                |
+| `pnpm dev` fails on port 3000           | Old `next dev` still running                        | `lsof -i:3000` then `kill <pid>`      |
+| Documentos upload returns 500           | Storage bucket not initialized                      | `supabase db reset` reapplies storage |
+| Type errors on a page                   | Migration not applied                               | `supabase db reset`                   |
 
 ## 7. After the demo
 
@@ -182,3 +200,14 @@ These features are NOT in main yet — do not promise them in the call:
 
 If the client asks about any of these, the honest answer is "in the
 roadmap, ETA next sprint" — not "we have it".
+
+**⚠️ `DEMO_VIDEO_SCRIPT.md` is now out of sync — fix before recording:**
+
+- Line ~35 says the home screen redirects straight into CRM. It doesn't
+  anymore — `/` now shows a 5-KPI dashboard (Clientes activos,
+  Oportunidades abiertas, Tareas pendientes, Tareas vencidas, Documentos)
+  before you navigate anywhere.
+- Line ~172 lists "el dashboard consolidado con métricas del pipeline" as
+  a roadmap item for the closing pitch. It's already shipped — pitching it
+  as future work would undersell what you're about to show, and the client
+  will notice the contradiction if they see the home screen again.

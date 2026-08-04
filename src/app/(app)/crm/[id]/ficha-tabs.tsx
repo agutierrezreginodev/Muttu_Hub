@@ -47,7 +47,7 @@ export function FichaTabs({ clienteId }: FichaTabsProps) {
   const basePath = `/crm/${clienteId}`;
 
   return (
-    <nav className="flex gap-1 border-b" aria-label={es.crm.tabsNav}>
+    <nav className="flex gap-0.5 border-b" aria-label={es.crm.tabsNav}>
       {TABS.map((tab) => {
         const href = tab.segment ? `${basePath}/${tab.segment}` : basePath;
         const isActive = pathname === href;
@@ -57,10 +57,9 @@ export function FichaTabs({ clienteId }: FichaTabsProps) {
             href={href}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "flex h-11 min-h-11 items-center border-b-2 px-3 text-sm font-medium",
-              isActive
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
+              "relative flex min-h-11 items-center px-[15px] py-[10px] text-[13.5px] font-semibold text-ink-600 hover:text-ink-950",
+              isActive &&
+                "text-rose-700 after:absolute after:right-[11px] after:bottom-[-1px] after:left-[11px] after:h-[3px] after:rounded-t-full after:bg-rose-500 after:content-['']",
             )}
           >
             {tab.label}

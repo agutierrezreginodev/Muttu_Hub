@@ -31,6 +31,13 @@ describe("TareaCard (slice 4b, design part 2 §12 + spec KB4)", () => {
     expect(screen.getByText("María Pérez")).toBeInTheDocument();
   });
 
+  it("renders an avatar chip with the responsable's initials", () => {
+    render(
+      <TareaCard tarea={makeTarea({ responsableLabel: "María Pérez" })} />,
+    );
+    expect(screen.getByText("MP")).toBeInTheDocument();
+  });
+
   it("shows the Vencida badge when vencido is true, read directly from the prop", () => {
     render(<TareaCard tarea={makeTarea({ vencido: true })} />);
     expect(screen.getByText("Vencida")).toBeInTheDocument();

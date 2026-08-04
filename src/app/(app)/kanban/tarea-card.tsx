@@ -1,4 +1,5 @@
 import { es } from "@/messages/es";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -38,7 +39,10 @@ export function TareaCard({ tarea }: TareaCardProps) {
         <CardTitle>{tarea.titulo}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 text-xs text-muted-foreground">
-        <span>{tarea.responsableLabel}</span>
+        <div className="flex items-center gap-2">
+          <Avatar label={tarea.responsableLabel} />
+          <span>{tarea.responsableLabel}</span>
+        </div>
         <div className="flex flex-wrap items-center gap-1">
           {tarea.vencido ? (
             <Badge variant="destructive">{es.kanban.tarjeta.vencida}</Badge>
