@@ -112,6 +112,22 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
+      # Playwright runs against `next start`, so the app must be built first.
+      #
+      # This is also the repo's ONLY build gate, and it earns its place: `tsc
+      # --noEmit` in static-checks does NOT apply Next's route-type validation,
+      # and `next dev` does not validate route exports either. `main` shipped an
+      # unbuildable app for weeks because of that blind spot (an extra export in
+      # a Route Handler — see descargar-zip/limits.ts). A build failure now fails
+      # CI instead of only failing a deploy.
+      - name: Build the app (production)
+        run: |
+          eval "$(supabase status -o env)"
+          export NEXT_PUBLIC_SUPABASE_URL="$API_URL"
+          export NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY"
+          export SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY"
+          pnpm build
+
       # Local Supabase's ANON_KEY/SERVICE_ROLE_KEY are fixed, publicly
       # documented demo values baked into every fresh `supabase start` —
       # not secrets. Exported inline from this job's own instance, never

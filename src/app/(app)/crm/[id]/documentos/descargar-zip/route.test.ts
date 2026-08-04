@@ -8,7 +8,8 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(),
 }));
 
-import { POST, MAX_ZIP_DOCUMENTS, MAX_ZIP_TOTAL_BYTES } from "./route";
+import { POST } from "./route";
+import { MAX_ZIP_DOCUMENTS, MAX_ZIP_TOTAL_BYTES } from "./limits";
 
 const mockedCreateClient = vi.mocked(createClient);
 

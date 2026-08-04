@@ -54,7 +54,9 @@ interface ColumnaActiva {
  * `orden` (as `v_catalogo` itself returns them), so "first" here means
  * exactly that — this function does no sorting of its own.
  */
-export function fallbackColumna(columnasActivas: ColumnaActiva[]): string | null {
+export function fallbackColumna(
+  columnasActivas: ColumnaActiva[],
+): string | null {
   return columnasActivas[0]?.codigo ?? null;
 }
 
@@ -147,9 +149,7 @@ function prioridadRank(prioridad: string | null): number {
  * order. Returns a NEW array; the input is never mutated (callers may reuse
  * the same `groupTareasByColumna` bucket for re-renders).
  */
-export function sortTareasForBoard<T extends TareaOrdenable>(
-  tareas: T[],
-): T[] {
+export function sortTareasForBoard<T extends TareaOrdenable>(tareas: T[]): T[] {
   return [...tareas].sort((a, b) => {
     const fechaDiff = fechaRank(a.fechaLimite) - fechaRank(b.fechaLimite);
     if (fechaDiff !== 0) {

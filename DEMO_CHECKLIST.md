@@ -98,7 +98,7 @@ git checkout pnpm-lock.yaml
 
 - [ ] Output shows: 4 PDFs subidos, 4 paths actualizados
 - [ ] Open the browser, log in, navigate Documentos → click download on any
-  doc → browser opens a real PDF (not a 404)
+      doc → browser opens a real PDF (not a 404)
 
 ## 3. Seed the demo data (15 min)
 
@@ -154,14 +154,14 @@ pnpm lint
 
 ## 6. Things that WILL break the demo if you forget
 
-| Symptom                                     | Cause                              | Fix                                       |
-| ------------------------------------------- | ---------------------------------- | ----------------------------------------- |
-| Login fails with "Invalid credentials"      | Admin invite link not opened       | Re-open Mailpit, click the link           |
-| Tablero Kanban empty                        | No kanban tareas seeded            | Create them as admin                      |
-| "Could not find the Administrador role"     | `supabase db reset` not run        | Run it                                    |
-| `pnpm dev` fails on port 3000               | Old `next dev` still running       | `lsof -i:3000` then `kill <pid>`          |
-| Documentos upload returns 500               | Storage bucket not initialized     | `supabase db reset` reapplies storage     |
-| Type errors on a page                       | Migration not applied              | `supabase db reset`                       |
+| Symptom                                 | Cause                          | Fix                                   |
+| --------------------------------------- | ------------------------------ | ------------------------------------- |
+| Login fails with "Invalid credentials"  | Admin invite link not opened   | Re-open Mailpit, click the link       |
+| Tablero Kanban empty                    | No kanban tareas seeded        | Create them as admin                  |
+| "Could not find the Administrador role" | `supabase db reset` not run    | Run it                                |
+| `pnpm dev` fails on port 3000           | Old `next dev` still running   | `lsof -i:3000` then `kill <pid>`      |
+| Documentos upload returns 500           | Storage bucket not initialized | `supabase db reset` reapplies storage |
+| Type errors on a page                   | Migration not applied          | `supabase db reset`                   |
 
 ## 7. After the demo
 

@@ -72,9 +72,7 @@ describe("TareaCard (slice 4b, design part 2 §12 + spec KB4)", () => {
 
   it("renders one badge per etiqueta — proves the loop actually iterates, not a ghost loop", () => {
     render(
-      <TareaCard
-        tarea={makeTarea({ etiquetas: ["comercial", "interno"] })}
-      />,
+      <TareaCard tarea={makeTarea({ etiquetas: ["comercial", "interno"] })} />,
     );
     expect(screen.getByText("comercial")).toBeInTheDocument();
     expect(screen.getByText("interno")).toBeInTheDocument();

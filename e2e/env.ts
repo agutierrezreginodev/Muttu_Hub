@@ -22,11 +22,30 @@ export const SUPABASE_SERVICE_ROLE_KEY = requireEnv(
 );
 export const MAILPIT_URL = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
 export const APP_URL = "http://127.0.0.1:3000";
-export const IDLE_APP_URL = "http://127.0.0.1:3010";
 
 export const E2E_ADMIN_EMAIL = "e2e-admin@muttu-hub.test";
 export const E2E_ADMIN_PASSWORD = "E2eAdminPass123";
 export const ADMIN_STORAGE_STATE_PATH = "e2e/.auth/admin.json";
+
+/**
+ * A user of its OWN, used by nothing but `idle-logout.spec.ts`.
+ *
+ * That spec drives `useIdleLogout` to completion, and the hook calls
+ * `supabase.auth.signOut()`. Supabase's default sign-out scope is GLOBAL: it
+ * revokes EVERY session belonging to that user, not just the current one. So if
+ * the spec shared the admin fixture it would destroy the admin session mid-suite
+ * and every later spec reusing `ADMIN_STORAGE_STATE_PATH` would be bounced to
+ * /login. That is not hypothetical — it is exactly what happened the moment the
+ * suite stopped running idle-logout in a separate, last-executing Playwright
+ * project: `invite-flow.spec.ts`, the only session-dependent spec that sorts
+ * after `idle-logout`, started failing on a button that renders unconditionally.
+ *
+ * A dedicated user REMOVES that ordering invariant rather than relying on it.
+ * Any role works; the spec only loads `/` and waits to be signed out.
+ */
+export const E2E_IDLE_EMAIL = "e2e-idle@muttu-hub.test";
+export const E2E_IDLE_PASSWORD = "E2eIdlePass123";
+export const IDLE_STORAGE_STATE_PATH = "e2e/.auth/idle.json";
 
 /**
  * Documentos fixtures (task 8.1). Three sessions are needed because the
