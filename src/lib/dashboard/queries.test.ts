@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createClient } from "@/lib/supabase/server";
 import {
   OTROS_SERVICIO_CODE,
   sortPipelineEstadoRows,
@@ -24,7 +25,34 @@ import {
   sumMisTareasVencenPronto,
   groupMiResumenPorEstado,
   type MiResumenTareaRow,
+  getMisClientes,
+  getTareasEstado,
+  settledOr,
 } from "@/lib/dashboard/queries";
+
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: vi.fn(),
+}));
+
+/**
+ * Minimal thenable Supabase query-builder stub, same pattern
+ * `src/lib/documentos/queries.test.ts` establishes: every chain method
+ * (`select`/`maybeSingle`) returns something that ultimately resolves the
+ * SAME `{ data, error }` result, without pulling in a real Supabase client.
+ */
+function createDashboardQueryBuilder(result: {
+  data: unknown;
+  error: unknown;
+}) {
+  const builder = {
+    select: vi.fn(() => builder),
+    maybeSingle: vi.fn(() => Promise.resolve(result)),
+    then: (resolve: (value: typeof result) => void) => resolve(result),
+  };
+  return builder;
+}
+
+const mockedCreateClient = vi.mocked(createClient);
 
 /**
  * Task 2.3, spec dashboard-pipeline: `getPipelineEstado`/`getPipelineTotales`/
@@ -463,5 +491,106 @@ describe("Mi Resumen pure helpers (task 5.3/5.7, spec dashboard-mi-resumen)", ()
     it("returns [] for no rows", () => {
       expect(groupMiResumenPorEstado([])).toEqual([]);
     });
+  });
+});
+
+/**
+ * Bug fix (code review): every DB helper used to destructure only `data`
+ * from the Supabase response, so a real query failure was indistinguishable
+ * from a genuinely empty result AND left no trace anywhere. This suite
+ * proves TWO of the ten affected helpers now (a) log the error server-side
+ * and (b) still return the SAME documented fallback as before — visibility,
+ * not a new UI state.
+ */
+describe("DB helper error visibility (bug fix: log query errors, keep the documented fallback)", () => {
+  beforeEach(() => {
+    mockedCreateClient.mockReset();
+  });
+
+  it("getTareasEstado logs the error and still returns [] when the query fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const builder = createDashboardQueryBuilder({
+      data: null,
+      error: { message: "connection refused" },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockedCreateClient.mockResolvedValue({ from: vi.fn(() => builder) } as any);
+
+    const result = await getTareasEstado();
+
+    expect(result).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "getTareasEstado failed:",
+      "connection refused",
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it("getTareasEstado does NOT log when the query succeeds", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const builder = createDashboardQueryBuilder({
+      data: [{ estado: "pendiente", tareas: 2, vencidas: 1 }],
+      error: null,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockedCreateClient.mockResolvedValue({ from: vi.fn(() => builder) } as any);
+
+    const result = await getTareasEstado();
+
+    expect(result).toEqual([{ estado: "pendiente", tareas: 2, vencidas: 1 }]);
+    expect(errorSpy).not.toHaveBeenCalled();
+
+    errorSpy.mockRestore();
+  });
+
+  it("getMisClientes logs the error and still returns 0 when the query fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const builder = createDashboardQueryBuilder({
+      data: null,
+      error: { message: "timeout" },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockedCreateClient.mockResolvedValue({ from: vi.fn(() => builder) } as any);
+
+    const result = await getMisClientes();
+
+    expect(result).toBe(0);
+    expect(errorSpy).toHaveBeenCalledWith("getMisClientes failed:", "timeout");
+
+    errorSpy.mockRestore();
+  });
+});
+
+/**
+ * `settledOr` (bug fix, task: `Promise.allSettled` unwrap helper): the three
+ * dashboard pages fetched with a bare `Promise.all`, so a single REJECTED
+ * promise threw the whole face to Next's error boundary instead of
+ * degrading just its own slot. Pure function, independently unit-testable.
+ */
+describe("settledOr (bug fix: Promise.allSettled slot unwrap)", () => {
+  it("returns the fulfilled value", () => {
+    const result: PromiseSettledResult<number> = {
+      status: "fulfilled",
+      value: 42,
+    };
+    expect(settledOr(result, -1)).toBe(42);
+  });
+
+  it("returns the fallback and logs when the promise rejected", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const reason = new Error("network down");
+    const result: PromiseSettledResult<number> = {
+      status: "rejected",
+      reason,
+    };
+
+    expect(settledOr(result, -1)).toBe(-1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "settledOr fallback used, promise rejected:",
+      reason,
+    );
+
+    errorSpy.mockRestore();
   });
 });
