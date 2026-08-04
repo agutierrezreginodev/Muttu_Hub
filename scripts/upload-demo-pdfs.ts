@@ -24,7 +24,7 @@
 // sobreescriben y los storage_path se resetean al valor convencional.
 
 import { createClient } from "@supabase/supabase-js";
-// @ts-ignore -- pdfkit no tiene tipos oficiales
+// @ts-expect-error -- pdfkit no tiene tipos oficiales
 import PDFDocument from "pdfkit";
 import { execSync } from "node:child_process";
 
