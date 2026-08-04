@@ -5,7 +5,6 @@ import {
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
   APP_URL,
-  IDLE_APP_URL,
   E2E_ADMIN_EMAIL,
   E2E_ADMIN_PASSWORD,
   ADMIN_STORAGE_STATE_PATH,
@@ -25,6 +24,12 @@ import { setUpDocumentosFixtures } from "./utils/documentos-fixtures";
  * (fast-refresh reload mid-navigation can drop a just-set cookie). Warming
  * routes before any real interaction is what removes that flakiness — this is
  * not masking a product bug, it is dev-server compile latency.
+ *
+ * CI does not need this: it runs against `next start`, where every route is
+ * already compiled, and the warm-up costs a handful of fast requests. It stays
+ * for the LOCAL path, which does still hit dev mode — `playwright.config.ts`
+ * sets `reuseExistingServer: !process.env.CI`, so a developer with `pnpm dev`
+ * already running on port 3000 has the suite reuse that dev server.
  *
  * IMPORTANT LIMITATION, and the reason this is called twice below: an
  * unauthenticated request can only ever warm a PUBLIC route. Every gated route
@@ -139,8 +144,6 @@ export default async function globalSetup(): Promise<void> {
     // dev mode compiles per route FILE, so a placeholder id warms the bundle.
     `${APP_URL}/crm/1/documentos`,
     `${APP_URL}/admin/documentos`,
-    `${IDLE_APP_URL}/login`,
-    `${IDLE_APP_URL}/`,
   ];
 
   // Pass 1 — cookie-less. Warms the public routes only (see warmUpRoute).

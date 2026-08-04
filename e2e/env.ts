@@ -22,7 +22,6 @@ export const SUPABASE_SERVICE_ROLE_KEY = requireEnv(
 );
 export const MAILPIT_URL = process.env.MAILPIT_URL ?? "http://127.0.0.1:54324";
 export const APP_URL = "http://127.0.0.1:3000";
-export const IDLE_APP_URL = "http://127.0.0.1:3010";
 
 export const E2E_ADMIN_EMAIL = "e2e-admin@muttu-hub.test";
 export const E2E_ADMIN_PASSWORD = "E2eAdminPass123";
