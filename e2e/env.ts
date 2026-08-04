@@ -71,3 +71,15 @@ export const E2E_DOC_CATEGORIA_ETIQUETA = "E2E General";
 
 /** Role provisioned for the no-export case: reads documentos, cannot bulk-export. */
 export const E2E_DOC_NOEXPORT_ROLE = "E2E Documentos Lector";
+
+/**
+ * Dashboard fixture (task 2.9, spec dashboard-pipeline "dashboard.ver but
+ * no crm.ver sees zeros, not an error"). None of the 4 seeded roles hold
+ * this exact combination (every role with `dashboard.ver=true` also has
+ * `crm.ver=true`), so a dedicated role isolates the scenario.
+ */
+export const E2E_DASHBOARD_NOCRM_EMAIL = "e2e-dashboard-nocrm@muttu-hub.test";
+export const E2E_DASHBOARD_NOCRM_PASSWORD = "E2eDashboardNoCrmPass123";
+export const DASHBOARD_NOCRM_STORAGE_STATE_PATH =
+  "e2e/.auth/dashboard-nocrm.json";
+export const E2E_DASHBOARD_NOCRM_ROLE = "E2E Dashboard Sin CRM";

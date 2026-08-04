@@ -49,6 +49,7 @@ export const es = {
   },
   home: {
     welcome: "Bienvenido a Muttu Hub.",
+    nav: "Inicio",
   },
   admin: {
     title: "Administración",

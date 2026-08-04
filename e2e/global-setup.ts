@@ -1,5 +1,5 @@
 import { chromium } from "@playwright/test";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   SUPABASE_URL,
@@ -17,8 +17,104 @@ import {
   E2E_IDLE_EMAIL,
   E2E_IDLE_PASSWORD,
   IDLE_STORAGE_STATE_PATH,
+  E2E_DASHBOARD_NOCRM_EMAIL,
+  E2E_DASHBOARD_NOCRM_PASSWORD,
+  DASHBOARD_NOCRM_STORAGE_STATE_PATH,
+  E2E_DASHBOARD_NOCRM_ROLE,
 } from "./env";
 import { setUpDocumentosFixtures } from "./utils/documentos-fixtures";
+
+/**
+ * Dashboard fixture (task 2.9): a role holding `dashboard.ver` but NOT
+ * `crm.ver` — none of the 4 seeded roles combine those two, so this
+ * isolates spec dashboard-pipeline's "dashboard.ver but no crm.ver sees
+ * zeros, not an error" scenario. Same idempotent lookup-then-create posture
+ * as every other fixture in this file.
+ */
+async function setUpDashboardNoCrmFixture(
+  supabase: SupabaseClient,
+): Promise<void> {
+  const denyAll = {
+    ver: false,
+    crear: false,
+    editar: false,
+    eliminar: false,
+    exportar: false,
+  };
+
+  const { data: existingRol } = await supabase
+    .from("rol")
+    .select("id")
+    .eq("nombre", E2E_DASHBOARD_NOCRM_ROLE)
+    .maybeSingle();
+
+  let rolId = existingRol?.id as number | undefined;
+  if (!rolId) {
+    const { data: created, error } = await supabase
+      .from("rol")
+      .insert({
+        nombre: E2E_DASHBOARD_NOCRM_ROLE,
+        descripcion:
+          "E2E fixture: dashboard.ver without crm.ver — proves zeros, not an error.",
+        permisos: {
+          crm: denyAll,
+          kanban: denyAll,
+          documentos: denyAll,
+          dashboard: { ...denyAll, ver: true },
+          admin: denyAll,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (error || !created) {
+      throw new Error(
+        `E2E global-setup: could not create the ${E2E_DASHBOARD_NOCRM_ROLE} role: ${error?.message ?? "unknown error"}`,
+      );
+    }
+    rolId = created.id as number;
+  }
+
+  const { data: existingUsuario } = await supabase
+    .from("usuario")
+    .select("id")
+    .eq("email", E2E_DASHBOARD_NOCRM_EMAIL)
+    .maybeSingle();
+
+  if (existingUsuario) {
+    await supabase
+      .from("usuario")
+      .update({ rol_id: rolId })
+      .eq("id", existingUsuario.id);
+    return;
+  }
+
+  const { data: createdUser, error: createUserError } =
+    await supabase.auth.admin.createUser({
+      email: E2E_DASHBOARD_NOCRM_EMAIL,
+      password: E2E_DASHBOARD_NOCRM_PASSWORD,
+      email_confirm: true,
+    });
+
+  if (createUserError || !createdUser?.user) {
+    throw new Error(
+      `E2E global-setup: failed to create ${E2E_DASHBOARD_NOCRM_EMAIL}: ${createUserError?.message ?? "unknown error"}`,
+    );
+  }
+
+  const { error: insertError } = await supabase.from("usuario").insert({
+    id: createdUser.user.id,
+    nombre: "E2E Dashboard Sin CRM",
+    email: E2E_DASHBOARD_NOCRM_EMAIL,
+    rol_id: rolId,
+  });
+
+  if (insertError) {
+    throw new Error(
+      `E2E global-setup: ${E2E_DASHBOARD_NOCRM_EMAIL} auth user created but usuario insert failed: ${insertError.message}`,
+    );
+  }
+}
 
 /**
  * Next.js dev mode compiles each route on-demand, on first request — 10s+
@@ -162,6 +258,9 @@ export default async function globalSetup(): Promise<void> {
   // extra users that isolate the category axis and the exportar verb.
   await setUpDocumentosFixtures(supabase, rol.id);
 
+  // Dashboard fixture (task 2.9): dashboard.ver without crm.ver.
+  await setUpDashboardNoCrmFixture(supabase);
+
   const routesToWarm = [
     `${APP_URL}/login`,
     `${APP_URL}/`,
@@ -186,6 +285,11 @@ export default async function globalSetup(): Promise<void> {
     // dev mode compiles per route FILE, so a placeholder id warms the bundle.
     `${APP_URL}/crm/1/documentos`,
     `${APP_URL}/admin/documentos`,
+    `${APP_URL}/dashboard`,
+    // PR-3: Actividad face, same "warm the dev-mode bundle ahead of time" reasoning.
+    `${APP_URL}/dashboard/actividad`,
+    // PR-4: Tareas face, same reasoning.
+    `${APP_URL}/dashboard/tareas`,
   ];
 
   // Pass 1 — cookie-less. Warms the public routes only (see warmUpRoute).
@@ -306,6 +410,11 @@ export default async function globalSetup(): Promise<void> {
     E2E_DOC_NOEXPORT_EMAIL,
     E2E_DOC_NOEXPORT_PASSWORD,
     DOC_NOEXPORT_STORAGE_STATE_PATH,
+  );
+  await saveSession(
+    E2E_DASHBOARD_NOCRM_EMAIL,
+    E2E_DASHBOARD_NOCRM_PASSWORD,
+    DASHBOARD_NOCRM_STORAGE_STATE_PATH,
   );
   // Last, and deliberately its own user: idle-logout signs this session out
   // globally, so it must not be a session any other spec depends on.
