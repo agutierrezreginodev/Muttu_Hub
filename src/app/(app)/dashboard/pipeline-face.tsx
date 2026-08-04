@@ -12,7 +12,6 @@ export interface PipelineFaceChartRow {
 export interface PipelineFaceProps {
   abiertas: number;
   valorAbiertas: number;
-  pendingClassification: true;
   estadoCount: PipelineFaceChartRow[];
   estadoValor: PipelineFaceChartRow[];
   servicio: PipelineFaceChartRow[];
@@ -34,6 +33,8 @@ function formatCop(value: number): string {
  * "pendiente de clasificación" state ONLY (CONFIRMED PRODUCT DECISION: no
  * won/lost estado classification exists yet — see
  * `src/lib/dashboard/queries.ts`'s `PipelineTotales.pendingClassification`).
+ * That marker is deliberately NOT a prop here: it can only ever be `true`, so
+ * passing it in would imply this component branches on it when it does not.
  * Count and value are two SEPARATE horizontal-bar charts (one-axis rule,
  * spec "Valor por estado (COP) chart" — never a shared dual y-axis).
  */

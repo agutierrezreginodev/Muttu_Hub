@@ -14,7 +14,6 @@ describe("PipelineFace (task 2.7/2.8, spec dashboard-pipeline)", () => {
     // colliding with a chart's own direct numeric label.
     abiertas: 7,
     valorAbiertas: 1500,
-    pendingClassification: true as const,
     estadoCount: [
       { label: "Abierta", value: 2 },
       { label: "Ganada", value: 1 },
@@ -58,7 +57,6 @@ describe("PipelineFace (task 2.7/2.8, spec dashboard-pipeline)", () => {
       <PipelineFace
         abiertas={0}
         valorAbiertas={0}
-        pendingClassification
         estadoCount={[]}
         estadoValor={[]}
         servicio={[]}

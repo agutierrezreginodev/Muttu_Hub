@@ -56,7 +56,6 @@ export default async function DashboardPage() {
     <PipelineFace
       abiertas={totales.abiertas}
       valorAbiertas={totales.valorAbiertas}
-      pendingClassification={totales.pendingClassification}
       estadoCount={estadoCount}
       estadoValor={estadoValor}
       servicio={servicioRows}
