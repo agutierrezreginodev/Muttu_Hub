@@ -6,7 +6,10 @@ import {
   resolveUsuarioLabel,
 } from "@/lib/admin/directory";
 import { listBoardTareas, listColumnas } from "@/lib/kanban/queries";
-import { groupTareasByColumna, sortTareasForBoard } from "@/lib/kanban/columnas";
+import {
+  groupTareasByColumna,
+  sortTareasForBoard,
+} from "@/lib/kanban/columnas";
 import { KanbanBoard } from "./board";
 import type { BoardColumnData } from "./board-column";
 

@@ -9,3 +9,6 @@ pnpm-lock.yaml
 next-env.d.ts
 .vercel
 .atl
+
+# Local hook cache (never committed)
+.impeccable

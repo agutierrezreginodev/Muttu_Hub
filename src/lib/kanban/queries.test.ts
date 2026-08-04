@@ -61,9 +61,9 @@ describe("origen partition exhaustiveness (TAREA_KANBAN_ORIGENES vs COMPROMISO_O
 
   it("'Kanban' is exclusive to TAREA_KANBAN_ORIGENES, never a compromiso origen", () => {
     expect(isKanbanOrigen("Kanban")).toBe(true);
-    expect(
-      (COMPROMISO_ORIGENES as readonly string[]).includes("Kanban"),
-    ).toBe(false);
+    expect((COMPROMISO_ORIGENES as readonly string[]).includes("Kanban")).toBe(
+      false,
+    );
   });
 
   it("DELIBERATE overlap: 'Ambos' belongs to BOTH sets — a promoted compromiso is simultaneously a board card and a compromiso", () => {

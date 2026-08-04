@@ -21,7 +21,9 @@ describe("tareaCreateSchema (spec KT1/KT2 — responsable is REQUIRED, unlike CR
   });
 
   it("rejects a create with no responsableId at all — Kanban never writes estado='borrador'", () => {
-    const result = tareaCreateSchema.safeParse({ titulo: "Preparar propuesta" });
+    const result = tareaCreateSchema.safeParse({
+      titulo: "Preparar propuesta",
+    });
     expect(result.success).toBe(false);
   });
 

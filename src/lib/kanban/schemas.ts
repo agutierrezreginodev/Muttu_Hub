@@ -62,10 +62,7 @@ const tareaFields = {
    * or edit path REQUIRES a responsable — enforced here, at the earliest
    * possible gate, before the server action or the DB CHECK ever sees it.
    */
-  responsableId: z
-    .string()
-    .trim()
-    .min(1, { message: es.common.requiredField }),
+  responsableId: z.string().trim().min(1, { message: es.common.requiredField }),
   fechaLimite: optionalTrimmed(z.string().date()),
   prioridad: optionalTrimmed(z.string()),
   etiquetas: z.array(z.string()).default([]),

@@ -58,20 +58,14 @@ function generarPdf(
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc
-      .fontSize(24)
-      .fillColor("#0a3a5c")
-      .text(titulo, { align: "left" });
+    doc.fontSize(24).fillColor("#0a3a5c").text(titulo, { align: "left" });
     doc.moveDown(0.3);
     doc
       .fontSize(11)
       .fillColor("#666")
       .text("Muttu Hub — Documento de demostración", { align: "left" });
     doc.moveDown(0.2);
-    doc
-      .fontSize(10)
-      .fillColor("#999")
-      .text(subtitulo, { align: "left" });
+    doc.fontSize(10).fillColor("#999").text(subtitulo, { align: "left" });
     doc.moveDown(1.5);
 
     doc.fillColor("#222");
@@ -99,15 +93,14 @@ function generarPdf(
  * respeta la policy RLS de documento_version (que es estricta); el rol
  * `postgres` superuser bypasea RLS y puede hacer el UPDATE.
  */
-function updateStoragePathsViaSql(rows: { id: number; newPath: string }[]): void {
+function updateStoragePathsViaSql(
+  rows: { id: number; newPath: string }[],
+): void {
   if (!rows.length) return;
 
   // Construir el UPDATE con un CASE por id para hacerlo en una sola query
   const cases = rows
-    .map(
-      (r) =>
-        `WHEN ${r.id} THEN '${r.newPath.replace(/'/g, "''")}'`,
-    )
+    .map((r) => `WHEN ${r.id} THEN '${r.newPath.replace(/'/g, "''")}'`)
     .join("\n        ");
   const ids = rows.map((r) => r.id).join(",");
   const sql = `
@@ -126,12 +119,17 @@ function updateStoragePathsViaSql(rows: { id: number; newPath: string }[]): void
     .toString()
     .trim();
   if (!container) {
-    throw new Error("No encontré el container de Postgres de Supabase corriendo.");
+    throw new Error(
+      "No encontré el container de Postgres de Supabase corriendo.",
+    );
   }
 
-  execSync(`docker exec -i "${container}" psql -U postgres -d postgres -c "${sql.replace(/"/g, '\\"')}"`, {
-    stdio: "inherit",
-  });
+  execSync(
+    `docker exec -i "${container}" psql -U postgres -d postgres -c "${sql.replace(/"/g, '\\"')}"`,
+    {
+      stdio: "inherit",
+    },
+  );
 }
 
 const contenidoPorNombre: Record<
@@ -163,8 +161,7 @@ const contenidoPorNombre: Record<
   },
   "Onboarding cliente — checklist inicial": {
     titulo: "Onboarding — Checklist Primer Mes",
-    subtitulo:
-      "Grupo Andino S.A. · Período: 01/01/2026 a 01/02/2026",
+    subtitulo: "Grupo Andino S.A. · Período: 01/01/2026 a 01/02/2026",
     parrafos: [
       "Este documento lista las actividades de onboarding correspondientes al primer mes de relación con Grupo Andino S.A. Cada ítem tiene un responsable asignado y una fecha objetivo.",
       "SEMANA 1. Reunión de kickoff con stakeholders clave (realizada el 8 de enero). Relevamiento de infraestructura actual por el equipo de TI. Configuración de canales de comunicación: Slack compartido, grupo de WhatsApp para urgencias.",
@@ -180,7 +177,7 @@ async function main() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) {
     throw new Error(
-      "Necesitás NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY en el entorno. Corré `eval \"$(supabase status -o env)\"` antes.",
+      'Necesitás NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY en el entorno. Corré `eval "$(supabase status -o env)"` antes.',
     );
   }
 
@@ -198,7 +195,9 @@ async function main() {
 
   const { data: versiones, error: verErr } = await supabase
     .from("documento_version")
-    .select("id, documento_id, cliente_id, version, storage_path, original_filename")
+    .select(
+      "id, documento_id, cliente_id, version, storage_path, original_filename",
+    )
     .order("id");
   if (verErr) throw verErr;
 
@@ -213,7 +212,9 @@ async function main() {
     `Encontrados ${documentos.length} docs y ${versiones.length} versiones.\n`,
   );
 
-  const docById = new Map<number, DocumentoRow>(documentos.map((d) => [d.id, d]));
+  const docById = new Map<number, DocumentoRow>(
+    documentos.map((d) => [d.id, d]),
+  );
 
   let totalSubidos = 0;
   const updates: { id: number; newPath: string }[] = [];

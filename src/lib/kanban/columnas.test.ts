@@ -108,7 +108,12 @@ describe("groupTareasByColumna (design D3's tradeoff — null and the first acti
       { id: 2, columna: "por_hacer" },
     ];
     const groups = groupTareasByColumna(tareas, activas);
-    expect(groups.get("por_hacer")?.map((t) => t.id).sort()).toEqual([1, 2]);
+    expect(
+      groups
+        .get("por_hacer")
+        ?.map((t) => t.id)
+        .sort(),
+    ).toEqual([1, 2]);
   });
 
   it("every active column has a (possibly empty) bucket, even with zero tareas", () => {
