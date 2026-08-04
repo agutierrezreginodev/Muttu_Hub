@@ -28,14 +28,14 @@ export function UserMenu({ nombre, email }: UserMenuProps) {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((previous) => !previous)}
-        className="flex h-11 min-h-11 items-center gap-2 rounded-lg px-3 text-base hover:bg-muted"
+        className="flex h-11 min-h-11 w-full items-center gap-2 truncate rounded-lg px-3 text-base text-sidebar-foreground hover:bg-sidebar-accent"
       >
         {nombre}
       </button>
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-10 mt-2 w-56 rounded-lg border bg-popover p-2 text-popover-foreground shadow-md"
+          className="absolute bottom-full left-0 z-10 mb-2 w-full min-w-56 rounded-lg border bg-popover p-2 text-popover-foreground shadow-sh-3"
         >
           <p className="truncate px-2 py-1 text-sm text-muted-foreground">
             {email}

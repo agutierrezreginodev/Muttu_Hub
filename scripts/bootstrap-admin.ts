@@ -31,6 +31,14 @@
  *   NEXT_PUBLIC_SUPABASE_URL     Project URL (e.g. http://127.0.0.1:54321 for local dev).
  *                                Not a secret; reused from .env.example on purpose.
  *   SUPABASE_SERVICE_ROLE_KEY    Service-role key. Server-only, never NEXT_PUBLIC_.
+ *   NEXT_PUBLIC_SITE_URL         Public app origin the invite link should point the
+ *                                user back to (e.g. http://127.0.0.1:3000 for local
+ *                                dev). Defaults to that. The redirect chain
+ *                                SITE → /auth/callback?next=/actualizar-clave mirrors
+ *                                the admin-module invite (src/lib/admin/actions.ts)
+ *                                and the recovery flow (src/lib/auth/actions.ts), so
+ *                                first-time invitees land on the "set password" form
+ *                                instead of an authenticated home with no password.
  *
  * CLI FLAGS
  *   --email   <email>    Required. Email of the first administrator.
@@ -158,8 +166,19 @@ async function main(): Promise<void> {
   // Same mechanism the admin module later uses for every other user (U8):
   // invite by email, invitee sets their own password server-side. Admins
   // never know passwords (design decision "Account creation").
+  //
+  // redirectTo must point at the APP origin, not the GoTrue origin — the
+  // verify URL Kong will redirect to is `${SITE_URL}/auth/callback?next=...`,
+  // and the callback (src/app/auth/callback/page.tsx) reads `next` to decide
+  // where to drop the now-authenticated user. Without `next=/actualizar-clave`
+  // here, the invitee lands on `/` with a session but no password set
+  // (GOTRUE_MAILER_AUTOCONFIRM=true in the local stack auto-confirms without
+  // ever surfacing a set-password form).
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3000";
   const { data: invited, error: inviteError } =
-    await supabase.auth.admin.inviteUserByEmail(email);
+    await supabase.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${siteUrl}/auth/callback?next=/actualizar-clave`,
+    });
 
   if (inviteError || !invited?.user) {
     console.error(

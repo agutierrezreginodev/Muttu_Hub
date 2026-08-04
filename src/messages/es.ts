@@ -50,6 +50,14 @@ export const es = {
   home: {
     welcome: "Bienvenido a Muttu Hub.",
     nav: "Inicio",
+    kpis: {
+      clientesActivos: "Clientes activos",
+      oportunidadesAbiertas: "Oportunidades abiertas",
+      tareasPendientes: "Tareas pendientes",
+      tareasVencidas: "Tareas vencidas",
+      documentos: "Documentos",
+      unavailable: "—",
+    },
   },
   admin: {
     title: "Administración",
