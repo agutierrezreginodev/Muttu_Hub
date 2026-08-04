@@ -3,6 +3,7 @@
 /.pnp
 .pnp.*
 .yarn/*
+/.pnpm-store/
 
 # Testing
 /coverage
@@ -47,3 +48,6 @@ supabase/.env
 
 # SDD tooling state (local)
 .atl/
+
+# Local agent settings (per-developer, never shared)
+.claude/settings.local.json

@@ -313,6 +313,69 @@ export const es = {
       etiquetaInactiva: "Esa etiqueta ya no está activa.",
     },
   },
+  dashboard: {
+    nav: "Panel",
+    title: "Panel general",
+    tabs: {
+      pipeline: "Pipeline",
+      actividad: "Actividad clientes",
+      tareas: "Tareas",
+      miResumen: "Mi resumen",
+    },
+    charts: {
+      loading: "Cargando datos…",
+      emptyState: "No hay datos para mostrar.",
+      tableViewToggle: "Ver como tabla",
+      chartViewToggle: "Ver como gráfico",
+      tableCaption: "Vista en tabla, equivalente al gráfico.",
+      otros: "Otros",
+    },
+    pipeline: {
+      kpis: {
+        abiertas: "Oportunidades abiertas",
+        valorAbiertas: "Valor total abierto",
+        conversion: "Conversión",
+        conversionPendiente: "Pendiente de clasificación",
+      },
+      charts: {
+        porEstadoCount: "Oportunidades por estado",
+        porEstadoValor: "Valor por estado (COP)",
+        porServicio: "Por servicio de interés",
+      },
+    },
+    actividad: {
+      ventana: "Últimos 30 días",
+      kpis: {
+        nuevosContactos: "Nuevos contactos",
+        nuevasOportunidades: "Nuevas oportunidades",
+      },
+      charts: {
+        volumenSemanal: "Actividad por semana",
+        clientesActivos: "Clientes más activos",
+        feedTitle: "Actividad reciente",
+      },
+      tipos: {
+        bitacora: "Nota",
+        contacto_nuevo: "Contacto nuevo",
+        oportunidad_nueva: "Oportunidad nueva",
+        oportunidad_gestion: "Gestión",
+      },
+    },
+    tareas: {
+      kpis: {
+        vencidas: "Tareas vencidas",
+      },
+      charts: {
+        porEstado: "Tareas por estado",
+        throughput: "Tareas completadas por semana",
+        throughputAproximado:
+          "Aproximado: aún no existe una fecha de finalización en el sistema.",
+        porResponsable: "Tareas abiertas por responsable",
+        abiertas: "Abiertas",
+        vencidas: "Vencidas",
+      },
+    },
+  },
 } as const;
 
 export type Messages = typeof es;
