@@ -9,26 +9,34 @@ export interface HorizontalBarSeries {
   key: string;
   label: string;
   color: string;
-  data: Array<{ label: string; value: number }>;
+  data: Array<{
+    label: string;
+    value: number;
+    /**
+     * Pre-formatted text for the direct label and hover tooltip (task 2.8,
+     * spec dashboard-pipeline "the value chart's bars are labeled in COP").
+     * Bar WIDTH always uses the raw numeric `value` — this only changes the
+     * displayed text, and falls back to the plain number when omitted.
+     *
+     * A STRING, deliberately, not a formatter function. This component is
+     * `"use client"` and every caller is a Server Component, so a function
+     * prop cannot cross that boundary — React rejects it at render time with
+     * "Functions cannot be passed directly to Client Components". Formatting
+     * belongs where the data is assembled anyway.
+     */
+    displayValue?: string;
+  }>;
 }
 
 interface HorizontalBarProps {
   series: HorizontalBarSeries[];
   className?: string;
-  /**
-   * Formats a raw value for the direct label and hover tooltip (task 2.8,
-   * spec dashboard-pipeline "the value chart's bars are labeled in COP").
-   * Bar WIDTH always uses the raw numeric `value` — this only changes the
-   * displayed text. Defaults to the plain number (PR-1 behavior, unchanged
-   * for every existing caller that doesn't pass it).
-   */
-  formatValue?: (value: number) => string;
 }
 
 interface HoverState {
   categoryLabel: string;
   seriesLabel: string;
-  value: number;
+  displayValue: string;
 }
 
 const ROW_HEIGHT = 28;
@@ -42,13 +50,8 @@ const CHART_WIDTH = 100; // percentage-based, viewBox is unitless 0-100
  * the order given in `series[0].data` — the caller (query layer) is
  * responsible for catalog ordering; this primitive never re-sorts.
  */
-export function HorizontalBar({
-  series,
-  className,
-  formatValue,
-}: HorizontalBarProps) {
+export function HorizontalBar({ series, className }: HorizontalBarProps) {
   const [hovered, setHovered] = useState<HoverState | null>(null);
-  const format = formatValue ?? ((value: number) => String(value));
 
   const hasData = series.some((s) => s.data.length > 0);
   if (!hasData) {
@@ -101,7 +104,9 @@ export function HorizontalBar({
         {categories.map((categoryLabel, rowIndex) => (
           <g key={categoryLabel}>
             {series.map((s, seriesIndex) => {
-              const value = s.data[rowIndex]?.value ?? 0;
+              const datum = s.data[rowIndex];
+              const value = datum?.value ?? 0;
+              const displayValue = datum?.displayValue ?? String(value);
               const barWidth = (value / maxValue) * (CHART_WIDTH - 20);
               const y =
                 rowIndex * ROW_HEIGHT +
@@ -122,7 +127,11 @@ export function HorizontalBar({
                   rx={4}
                   fill={s.color}
                   onMouseEnter={() =>
-                    setHovered({ categoryLabel, seriesLabel: s.label, value })
+                    setHovered({
+                      categoryLabel,
+                      seriesLabel: s.label,
+                      displayValue,
+                    })
                   }
                   onMouseLeave={() => setHovered(null)}
                 />
@@ -140,7 +149,8 @@ export function HorizontalBar({
                 fontSize={7}
                 fill="var(--color-ink-700)"
               >
-                {format(series[0]?.data[rowIndex]?.value ?? 0)}
+                {series[0]?.data[rowIndex]?.displayValue ??
+                  String(series[0]?.data[rowIndex]?.value ?? 0)}
               </text>
             ) : null}
           </g>
@@ -155,7 +165,7 @@ export function HorizontalBar({
         >
           {hovered.categoryLabel}
           {!isSingleSeries ? ` · ${hovered.seriesLabel}` : ""}:{" "}
-          {format(hovered.value)}
+          {hovered.displayValue}
         </div>
       ) : null}
     </div>

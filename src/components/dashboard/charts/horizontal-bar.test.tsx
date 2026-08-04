@@ -107,4 +107,42 @@ describe("HorizontalBar (PR-1, design.md §5)", () => {
       "12",
     );
   });
+
+  /**
+   * Regression: value text arrives PRE-FORMATTED, per datum, as a string.
+   * It used to arrive as a `formatValue` formatter function, which crashed
+   * `/dashboard` at runtime — this component is `"use client"` and every caller
+   * is a Server Component, so React rejected the function prop with "Functions
+   * cannot be passed directly to Client Components". Unit tests could not see it
+   * (they render the client component directly, never crossing the boundary);
+   * the E2E suite caught it. These two assertions pin the string contract.
+   */
+  describe("pre-formatted display values (RSC-safe)", () => {
+    const formattedSeries = [
+      {
+        key: "valor",
+        label: "Valor",
+        color: "var(--color-rose-500)",
+        data: [
+          { label: "Abierta", value: 1500000, displayValue: "$ 1.500.000" },
+          { label: "Ganada", value: 250000, displayValue: "$ 250.000" },
+        ],
+      },
+    ];
+
+    it("renders each datum's displayValue instead of the raw number", () => {
+      render(<HorizontalBar series={formattedSeries} />);
+      expect(screen.getByText("$ 1.500.000")).toBeInTheDocument();
+      expect(screen.getByText("$ 250.000")).toBeInTheDocument();
+      expect(screen.queryByText("1500000")).not.toBeInTheDocument();
+    });
+
+    it("uses the displayValue in the hover tooltip too", () => {
+      render(<HorizontalBar series={formattedSeries} />);
+      fireEvent.mouseEnter(screen.getByTestId("horizontal-bar-mark-Abierta"));
+      expect(screen.getByTestId("horizontal-bar-tooltip")).toHaveTextContent(
+        "$ 1.500.000",
+      );
+    });
+  });
 });
