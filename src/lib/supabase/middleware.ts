@@ -4,8 +4,21 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Paths reachable without an active session (spec A5). Every other path,
  * including the app shell and its home placeholder, requires a session.
+ *
+ * These are URL paths, NOT folder paths. `/login` and `/recuperar` live under
+ * `src/app/(auth)/`, and a parenthesised segment is a ROUTE GROUP: it never
+ * appears in the URL. `/auth/callback` is the one entry that really does carry
+ * an `/auth` prefix, because it sits at `src/app/auth/callback/` — outside the
+ * group. Mixing the two conventions is what broke this list: it used to read
+ * `/auth/recuperar`, a URL that does not exist, which left the real
+ * `/recuperar` gated and bounced every unauthenticated visitor to /login —
+ * making password recovery unreachable for exactly the users who need it.
+ *
+ * `/actualizar-clave` is deliberately NOT here: you only ever arrive there
+ * holding a session that `/auth/callback` just established from an invite or
+ * recovery link, so gating it is correct.
  */
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/recuperar"];
+const PUBLIC_PATHS = ["/login", "/recuperar", "/auth/callback"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some(
