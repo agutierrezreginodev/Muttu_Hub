@@ -384,6 +384,33 @@ export const es = {
         vencidas: "Vencidas",
       },
     },
+    miResumen: {
+      kpis: {
+        abiertas: "Mis tareas abiertas",
+        vencidas: "Mis tareas vencidas",
+        /**
+         * Short badge text for the overdue tile's status chip. Deliberately
+         * NOT the same string as `vencidas` above: KpiTile renders the label
+         * AND the status chip, so reusing one string puts it on screen twice
+         * and any test querying it by text matches two elements.
+         */
+        vencidasBadge: "Vencidas",
+        vencenPronto: "Vencen esta semana",
+        compromisos: "Mis compromisos de clientes",
+        misClientes: "Mis clientes asignados",
+      },
+      charts: {
+        porEstado: "Mis tareas por estado",
+      },
+      agenda: {
+        titulo: "Mis próximas fechas",
+        sinFecha: "Sin fecha",
+        vencida: "Vencida",
+        emptyState: "No tenés tareas con fecha próxima.",
+      },
+      ayuda:
+        "Esta vista muestra únicamente lo que está a tu nombre. «Mis compromisos de clientes» cuenta solo los que nacen del CRM; las demás cifras incluyen tanto tus compromisos como tus tareas del tablero.",
+    },
   },
 } as const;
 

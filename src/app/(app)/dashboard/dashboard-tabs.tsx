@@ -19,12 +19,15 @@ interface DashboardTab {
  * SINGLE place a tab is added; a tab is NEVER appended before its route
  * exists (same dead-link guard `ficha-tabs.tsx` documents). PR-2 shipped
  * Pipeline; PR-3 appends Actividad; PR-4 appends Tareas. Mi Resumen is
- * appended in its own PR.
+ * appended here now that `mi-resumen/page.tsx` exists — until this PR the
+ * label existed in `es.dashboard.tabs` but the route did not, which is
+ * exactly the state that dead-link guard is there to prevent.
  */
 export const DASHBOARD_TABS: DashboardTab[] = [
   { segment: null, label: es.dashboard.tabs.pipeline },
   { segment: "actividad", label: es.dashboard.tabs.actividad },
   { segment: "tareas", label: es.dashboard.tabs.tareas },
+  { segment: "mi-resumen", label: es.dashboard.tabs.miResumen },
 ];
 
 export function DashboardTabs() {
