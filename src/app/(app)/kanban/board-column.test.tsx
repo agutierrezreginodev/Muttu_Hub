@@ -2,6 +2,31 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 
 import { BoardColumn, type BoardColumnData } from "./board-column";
+import type { KanbanCardData } from "./tarea-card";
+import type { TareaFormOptions } from "./tarea-form-dialog";
+
+const FORM_OPTIONS: TareaFormOptions = {
+  usuarioOptions: [],
+  prioridadOptions: [],
+  etiquetaOptions: [],
+  defaultResponsableId: "user-1",
+};
+
+function makeCard(overrides: Partial<KanbanCardData> = {}): KanbanCardData {
+  return {
+    id: 1,
+    titulo: "A",
+    descripcion: null,
+    responsableId: null,
+    responsableLabel: "\u2014",
+    clienteId: null,
+    fechaLimite: null,
+    prioridad: null,
+    etiquetas: [],
+    vencido: false,
+    ...overrides,
+  };
+}
 
 function makeColumn(overrides: Partial<BoardColumnData> = {}): BoardColumnData {
   return {
@@ -19,7 +44,12 @@ function makeColumn(overrides: Partial<BoardColumnData> = {}): BoardColumnData {
  */
 describe("BoardColumn (slice 4b, design part 2 §12)", () => {
   it("renders the column etiqueta as its header", () => {
-    render(<BoardColumn column={makeColumn({ etiqueta: "En curso" })} />);
+    render(
+      <BoardColumn
+        column={makeColumn({ etiqueta: "En curso" })}
+        formOptions={FORM_OPTIONS}
+      />,
+    );
     expect(screen.getByText("En curso")).toBeInTheDocument();
   });
 
@@ -28,33 +58,23 @@ describe("BoardColumn (slice 4b, design part 2 §12)", () => {
       <BoardColumn
         column={makeColumn({
           tareas: [
-            {
-              id: 1,
-              titulo: "A",
-              responsableLabel: "—",
-              fechaLimite: null,
-              prioridad: null,
-              etiquetas: [],
-              vencido: false,
-            },
-            {
-              id: 2,
-              titulo: "B",
-              responsableLabel: "—",
-              fechaLimite: null,
-              prioridad: null,
-              etiquetas: [],
-              vencido: false,
-            },
+            makeCard({ id: 1, titulo: "A" }),
+            makeCard({ id: 2, titulo: "B" }),
           ],
         })}
+        formOptions={FORM_OPTIONS}
       />,
     );
     expect(screen.getByText("2")).toBeInTheDocument();
   });
 
   it("renders the empty-state message when there are zero tareas", () => {
-    render(<BoardColumn column={makeColumn({ tareas: [] })} />);
+    render(
+      <BoardColumn
+        column={makeColumn({ tareas: [] })}
+        formOptions={FORM_OPTIONS}
+      />,
+    );
     expect(
       screen.getByText("No hay tareas en esta columna."),
     ).toBeInTheDocument();
@@ -65,17 +85,13 @@ describe("BoardColumn (slice 4b, design part 2 §12)", () => {
       <BoardColumn
         column={makeColumn({
           tareas: [
-            {
-              id: 1,
+            makeCard({
               titulo: "Preparar propuesta",
               responsableLabel: "María Pérez",
-              fechaLimite: null,
-              prioridad: null,
-              etiquetas: [],
-              vencido: false,
-            },
+            }),
           ],
         })}
+        formOptions={FORM_OPTIONS}
       />,
     );
     expect(screen.getByText("Preparar propuesta")).toBeInTheDocument();

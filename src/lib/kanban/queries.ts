@@ -3,7 +3,10 @@ import {
   COLUMNA_TIPO,
   ETIQUETA_TIPO,
   PRIORIDAD_TIPO,
+  type CatalogoPickerOption,
 } from "@/lib/kanban/columnas";
+
+export type { CatalogoPickerOption } from "@/lib/kanban/columnas";
 
 /**
  * Slice 4a scaffolding (tasks: sdd/kanban-module/tasks, "Module shell").
@@ -159,11 +162,6 @@ export async function listEtiquetaOptions(): Promise<CatalogoPickerOption[]> {
 /** Active `prioridad` codes for the tarea form (same active-only surface). */
 export async function listPrioridadOptions(): Promise<CatalogoPickerOption[]> {
   return listCatalogoPicker(PRIORIDAD_TIPO);
-}
-
-export interface CatalogoPickerOption {
-  codigo: string;
-  etiqueta: string;
 }
 
 async function listCatalogoPicker(

@@ -4,9 +4,11 @@ import { useState } from "react";
 
 import { es } from "@/messages/es";
 import { BoardColumn, type BoardColumnData } from "./board-column";
+import type { TareaFormOptions } from "./tarea-form-dialog";
 
 interface KanbanBoardProps {
   columns: BoardColumnData[];
+  formOptions: TareaFormOptions;
 }
 
 /**
@@ -17,7 +19,7 @@ interface KanbanBoardProps {
  * `draggable`/`onDragStart`/`onDragOver`/`onDrop`, and rollback-on-error land
  * in 5b.
  */
-export function KanbanBoard({ columns }: KanbanBoardProps) {
+export function KanbanBoard({ columns, formOptions }: KanbanBoardProps) {
   const [boardColumns] = useState(columns);
 
   return (
@@ -26,7 +28,11 @@ export function KanbanBoard({ columns }: KanbanBoardProps) {
       aria-label={es.kanban.title}
     >
       {boardColumns.map((column) => (
-        <BoardColumn key={column.codigo} column={column} />
+        <BoardColumn
+          key={column.codigo}
+          column={column}
+          formOptions={formOptions}
+        />
       ))}
     </div>
   );
