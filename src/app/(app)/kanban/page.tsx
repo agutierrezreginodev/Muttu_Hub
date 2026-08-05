@@ -17,8 +17,10 @@ import {
   groupTareasByColumna,
   sortTareasForBoard,
 } from "@/lib/kanban/columnas";
+import { BOARD_SCOPES, SCOPE_PARAM, parseScope } from "@/lib/kanban/filtros";
 import { KanbanBoard } from "./board";
 import type { BoardColumnData } from "./board-column";
+import { ScopeToggle } from "./scope-toggle";
 import { TareaFormDialog, type TareaFormOptions } from "./tarea-form-dialog";
 
 export const metadata: Metadata = {
@@ -37,13 +39,20 @@ interface KanbanPageProps {
  * server-side via `groupTareasByColumna` (slice 4a) and ordered within each
  * column via `sortTareasForBoard` (this slice).
  *
- * `searchParams` is read — matching design D10's URL-`searchParams`-driven
- * filter/scope architecture — but not yet applied to either query:
- * `board-filters.tsx` and `scope-toggle.tsx` land in slice 5b, so no
- * filter/scope narrows this page's result set yet.
+ * The scope comes from the URL (design D10, spec KV2) and is applied as a
+ * QUERY: "Mi tablero" narrows `listBoardTareas` by `responsable_id`, so the
+ * board never ships rows it then hides. The KV1 field filters land in slice 6.
  */
 export default async function KanbanPage({ searchParams }: KanbanPageProps) {
-  await searchParams;
+  const params = await searchParams;
+  const scope = parseScope(params[SCOPE_PARAM]);
+
+  // Awaited before the board query because the "mine" scope needs the caller's
+  // own id. `React.cache()` means the layout's earlier call is reused — this is
+  // the same round trip, not an extra one.
+  const session = await getSessionContext();
+  const responsableId =
+    scope === BOARD_SCOPES.mio ? (session?.userId ?? undefined) : undefined;
 
   const [
     tareas,
@@ -52,15 +61,13 @@ export default async function KanbanPage({ searchParams }: KanbanPageProps) {
     usuarioOptions,
     prioridadOptions,
     etiquetaOptions,
-    session,
   ] = await Promise.all([
-    listBoardTareas(),
+    listBoardTareas({ responsableId }),
     listColumnas(),
     getUsuarioDirectory(),
     listUsuarioOptions(),
     listPrioridadOptions(),
     listEtiquetaOptions(),
-    getSessionContext(),
   ]);
 
   const cards = tareas.map((tarea) => ({
@@ -102,7 +109,10 @@ export default async function KanbanPage({ searchParams }: KanbanPageProps) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">{es.kanban.title}</h1>
-        <TareaFormDialog mode="create" {...formOptions} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ScopeToggle scope={scope} params={params} />
+          <TareaFormDialog mode="create" {...formOptions} />
+        </div>
       </div>
       <KanbanBoard columns={columns} formOptions={formOptions} />
     </div>

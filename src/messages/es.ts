@@ -314,6 +314,11 @@ export const es = {
     columnas: {
       emptyState: "No hay tareas en esta columna.",
     },
+    scope: {
+      label: "Alcance del tablero",
+      mio: "Mi tablero",
+      equipo: "Equipo completo",
+    },
     tarjeta: {
       vencida: "Vencida",
       sinFecha: "Sin fecha",

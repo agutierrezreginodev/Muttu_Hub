@@ -126,20 +126,33 @@ function mapBoardTareaRow(row: {
  * other list function in this codebase: a caller without the
  * origen-appropriate `ver` permission gets `[]`, never a thrown error.
  *
- * No `filters` parameter yet: `board-filters.tsx` and `scope-toggle.tsx`
- * (design D10's URL-`searchParams`-driven filter/scope UI) do not exist
- * until slice 5b, so there is nothing in THIS slice that would actually
- * exercise a filter branch — adding one now would be untested, dead code.
- * The signature gains parameters once a caller needs them.
+ * `responsableId` implements the "Mi tablero" scope (design D10, spec KV2) as a
+ * QUERY rather than a client-side filter: the narrow scope must not merely hide
+ * rows that already reached the browser. The remaining KV1 field filters
+ * (prioridad, etiqueta, cliente, vencidas, sin fecha) land with the filter UI
+ * in slice 6 — adding them here before a caller exercises them would be
+ * untested, dead branches.
  */
-export async function listBoardTareas(): Promise<BoardTarea[]> {
+export interface BoardFilters {
+  responsableId?: string;
+}
+
+export async function listBoardTareas(
+  filters: BoardFilters = {},
+): Promise<BoardTarea[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("v_tarea")
     .select(
       "id, titulo, descripcion, responsable_id, cliente_id, fecha_limite, estado, prioridad, etiquetas, origen, columna, vencido, created_at",
     )
     .in("origen", TAREA_KANBAN_ORIGENES);
+
+  if (filters.responsableId) {
+    query = query.eq("responsable_id", filters.responsableId);
+  }
+
+  const { data } = await query;
 
   return (data ?? []).map(mapBoardTareaRow);
 }
