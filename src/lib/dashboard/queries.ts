@@ -94,12 +94,16 @@ export function topNServicioWithOtros(
  */
 export async function getPipelineEstado(): Promise<PipelineEstadoRow[]> {
   const supabase = await createClient();
-  const [{ data }, catalogoMap] = await Promise.all([
+  const [{ data, error }, catalogoMap] = await Promise.all([
     supabase
       .from("v_dashboard_pipeline_estado")
       .select("estado, oportunidades, valor_total"),
     getCatalogoOptions(),
   ]);
+
+  if (error) {
+    console.error("getPipelineEstado failed:", error.message);
+  }
 
   const rows: PipelineEstadoRow[] = (data ?? []).map((row) => ({
     estado: row.estado,
@@ -127,10 +131,14 @@ export async function getPipelineEstado(): Promise<PipelineEstadoRow[]> {
  */
 export async function getPipelineTotales(): Promise<PipelineTotales> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_dashboard_pipeline_totales")
     .select("abiertas, valor_abiertas, total")
     .maybeSingle();
+
+  if (error) {
+    console.error("getPipelineTotales failed:", error.message);
+  }
 
   return {
     abiertas: data?.abiertas ?? 0,
@@ -149,10 +157,14 @@ export async function getPipelineTotales(): Promise<PipelineTotales> {
  */
 export async function getPipelineServicio(): Promise<PipelineServicioRow[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_dashboard_pipeline_servicio")
     .select("servicio_codigo, oportunidades")
     .order("oportunidades", { ascending: false });
+
+  if (error) {
+    console.error("getPipelineServicio failed:", error.message);
+  }
 
   return (data ?? []).map((row) => ({
     servicioCodigo: row.servicio_codigo,
@@ -206,11 +218,15 @@ export async function getActividadWindow(
     Date.now() - windowDays * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_actividad_cliente")
     .select("tipo, cliente_id, actor_id, detalle, ocurrido_en")
     .gte("ocurrido_en", cutoff)
     .order("ocurrido_en", { ascending: false });
+
+  if (error) {
+    console.error("getActividadWindow failed:", error.message);
+  }
 
   return (data ?? []).map((row) => ({
     tipo: row.tipo as ActividadTipo,
@@ -224,7 +240,11 @@ export async function getActividadWindow(
 /** All visible clientes' display names, keyed by id (task 3.4) — same "fetch the whole lookup map" convention as `getCatalogoOptions`/`getUsuarioDirectory`. */
 export async function getClienteNombreMap(): Promise<Map<number, string>> {
   const supabase = await createClient();
-  const { data } = await supabase.from("v_cliente").select("id, nombre");
+  const { data, error } = await supabase.from("v_cliente").select("id, nombre");
+
+  if (error) {
+    console.error("getClienteNombreMap failed:", error.message);
+  }
 
   const map = new Map<number, string>();
   for (const row of data ?? []) {
@@ -410,9 +430,13 @@ export interface TareaEstadoRow {
  */
 export async function getTareasEstado(): Promise<TareaEstadoRow[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_dashboard_tareas_estado")
     .select("estado, tareas, vencidas");
+
+  if (error) {
+    console.error("getTareasEstado failed:", error.message);
+  }
 
   return (data ?? []).map((row) => ({
     estado: row.estado,
@@ -447,9 +471,13 @@ export interface TareaResponsableRow {
  */
 export async function getTareasResponsable(): Promise<TareaResponsableRow[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_dashboard_tareas_responsable")
     .select("responsable_id, abiertas, vencidas");
+
+  if (error) {
+    console.error("getTareasResponsable failed:", error.message);
+  }
 
   return (data ?? []).map((row) => ({
     responsableId: row.responsable_id,
@@ -518,10 +546,14 @@ export interface TareaThroughputSemana {
  */
 export async function getTareasThroughput(): Promise<TareaThroughputSemana[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_dashboard_tareas_throughput")
     .select("semana, cumplidas")
     .order("semana", { ascending: true });
+
+  if (error) {
+    console.error("getTareasThroughput failed:", error.message);
+  }
 
   return (data ?? []).map((row) => ({
     semana: row.semana,
@@ -556,9 +588,13 @@ export interface MiResumenTareaRow {
 /** Self-scoped estado/origen rollup for the current user (task 5.4). Defaults to `[]` on no data/error. */
 export async function getMiResumenTareas(): Promise<MiResumenTareaRow[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_dashboard_mi_resumen_tareas")
     .select("estado, origen, tareas, vencidas, vencen_pronto");
+
+  if (error) {
+    console.error("getMiResumenTareas failed:", error.message);
+  }
 
   return (data ?? []).map((row) => ({
     estado: row.estado,
@@ -577,10 +613,14 @@ export async function getMiResumenTareas(): Promise<MiResumenTareaRow[]> {
  */
 export async function getMisClientes(): Promise<number> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_dashboard_mis_clientes")
     .select("mis_clientes")
     .maybeSingle();
+
+  if (error) {
+    console.error("getMisClientes failed:", error.message);
+  }
 
   return data?.mis_clientes ?? 0;
 }
@@ -685,13 +725,17 @@ export async function getMiAgenda(
   limit: number = MI_AGENDA_LIMIT_DEFAULT,
 ): Promise<MiAgendaItem[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("v_tarea")
     .select("id, titulo, fecha_limite, estado, vencido")
     .eq("responsable_id", userId)
     .not("estado", "in", "(cumplido,cancelado)")
     .order("fecha_limite", { ascending: true })
     .limit(limit);
+
+  if (error) {
+    console.error("getMiAgenda failed:", error.message);
+  }
 
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -700,4 +744,20 @@ export async function getMiAgenda(
     estado: row.estado,
     vencido: row.vencido,
   }));
+}
+
+/**
+ * Unwraps one `Promise.allSettled` slot (bug fix: every dashboard page's
+ * `Promise.all` used to let a single rejected fetch throw the whole face to
+ * Next's error boundary, instead of degrading that one slot the same way the
+ * helpers above already degrade a Supabase `error` — a rejection here is now
+ * logged and swapped for the caller-supplied fallback). Pure function,
+ * independently unit-testable without a DB.
+ */
+export function settledOr<T>(result: PromiseSettledResult<T>, fallback: T): T {
+  if (result.status === "fulfilled") {
+    return result.value;
+  }
+  console.error("settledOr fallback used, promise rejected:", result.reason);
+  return fallback;
 }

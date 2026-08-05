@@ -9,6 +9,7 @@ import {
   getTareasEstado,
   getTareasResponsable,
   getTareasThroughput,
+  settledOr,
   sumTareasVencidas,
   topResponsablesWithOtros,
   OTROS_RESPONSABLE_ID,
@@ -30,16 +31,23 @@ export const metadata: Metadata = {
  * these already-summed rows (design.md §7 "avoid N+1"), never a per-metric
  * round trip. A viewer lacking both `crm.ver` and `kanban.ver` renders every
  * tile/chart in its empty/zero state, never an error, same convention as
- * every other dashboard face.
+ * every other dashboard face. `Promise.allSettled` + `settledOr` (bug fix)
+ * means a single REJECTED fetch degrades only its own slot instead of
+ * throwing the whole face to Next's error boundary.
  */
 export default async function TareasPage() {
-  const [estadoRows, responsableRows, throughputRows, directory] =
-    await Promise.all([
+  const [estadoResult, responsableResult, throughputResult, directoryResult] =
+    await Promise.allSettled([
       getTareasEstado(),
       getTareasResponsable(),
       getTareasThroughput(),
       getUsuarioDirectory(),
     ]);
+
+  const estadoRows = settledOr(estadoResult, []);
+  const responsableRows = settledOr(responsableResult, []);
+  const throughputRows = settledOr(throughputResult, []);
+  const directory = settledOr(directoryResult, new Map());
 
   const vencidasTotal = sumTareasVencidas(estadoRows);
 

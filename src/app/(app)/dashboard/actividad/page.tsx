@@ -13,6 +13,7 @@ import {
   groupActividadPorSemana,
   limitActividadFeed,
   OTROS_CLIENTE_ID,
+  settledOr,
   topClientesActivos,
   type ActividadTipo,
 } from "@/lib/dashboard/queries";
@@ -39,13 +40,21 @@ const TIPO_LABELS: Record<ActividadTipo, string> = {
  * set (design.md §4.3/§7 "avoid N+1"), never a per-metric round trip. A
  * viewer without `crm.ver` renders every tile/chart/feed in its empty/zero
  * state, never an error, same convention as the Pipeline face.
+ * `Promise.allSettled` + `settledOr` (bug fix) means a single REJECTED fetch
+ * degrades only its own slot instead of throwing the whole face to Next's
+ * error boundary.
  */
 export default async function ActividadPage() {
-  const [rows, clienteNombres, directory] = await Promise.all([
-    getActividadWindow(),
-    getClienteNombreMap(),
-    getUsuarioDirectory(),
-  ]);
+  const [rowsResult, clienteNombresResult, directoryResult] =
+    await Promise.allSettled([
+      getActividadWindow(),
+      getClienteNombreMap(),
+      getUsuarioDirectory(),
+    ]);
+
+  const rows = settledOr(rowsResult, []);
+  const clienteNombres = settledOr(clienteNombresResult, new Map());
+  const directory = settledOr(directoryResult, new Map());
 
   const nuevos = countActividadNuevos(rows);
 
