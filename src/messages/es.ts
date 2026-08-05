@@ -318,6 +318,7 @@ export const es = {
       vencida: "Vencida",
       sinFecha: "Sin fecha",
       crear: "Nueva tarea",
+      moverA: "Mover a…",
       crearTitulo: "Nueva tarea",
       editarTitulo: "Editar tarea",
       titulo: "Título",

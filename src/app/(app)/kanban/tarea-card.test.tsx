@@ -16,6 +16,7 @@ function makeTarea(overrides: Partial<KanbanCardData> = {}): KanbanCardData {
     prioridad: "Alta",
     etiquetas: ["comercial"],
     vencido: false,
+    createdAt: "2026-08-01T00:00:00Z",
     ...overrides,
   };
 }
