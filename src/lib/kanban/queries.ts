@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import { COLUMNA_TIPO } from "@/lib/kanban/columnas";
+import {
+  COLUMNA_TIPO,
+  ETIQUETA_TIPO,
+  PRIORIDAD_TIPO,
+} from "@/lib/kanban/columnas";
 
 /**
  * Slice 4a scaffolding (tasks: sdd/kanban-module/tasks, "Module shell").
@@ -63,7 +67,11 @@ export async function listColumnas(): Promise<BoardColumna[]> {
 export interface BoardTarea {
   id: number;
   titulo: string;
+  /** Edit-dialog prefill only — the card render never shows it. */
+  descripcion: string | null;
   responsableId: string | null;
+  /** Edit-dialog prefill only, so a stored cliente survives an edit. */
+  clienteId: number | null;
   fechaLimite: string | null;
   estado: string;
   prioridad: string | null;
@@ -77,7 +85,9 @@ export interface BoardTarea {
 function mapBoardTareaRow(row: {
   id: number;
   titulo: string;
+  descripcion: string | null;
   responsable_id: string | null;
+  cliente_id: number | null;
   fecha_limite: string | null;
   estado: string;
   prioridad: string | null;
@@ -90,7 +100,9 @@ function mapBoardTareaRow(row: {
   return {
     id: row.id,
     titulo: row.titulo,
+    descripcion: row.descripcion,
     responsableId: row.responsable_id,
+    clienteId: row.cliente_id,
     fechaLimite: row.fecha_limite,
     estado: row.estado,
     prioridad: row.prioridad,
@@ -122,9 +134,50 @@ export async function listBoardTareas(): Promise<BoardTarea[]> {
   const { data } = await supabase
     .from("v_tarea")
     .select(
-      "id, titulo, responsable_id, fecha_limite, estado, prioridad, etiquetas, origen, columna, vencido, created_at",
+      "id, titulo, descripcion, responsable_id, cliente_id, fecha_limite, estado, prioridad, etiquetas, origen, columna, vencido, created_at",
     )
     .in("origen", TAREA_KANBAN_ORIGENES);
 
   return (data ?? []).map(mapBoardTareaRow);
+}
+
+/**
+ * Active `etiqueta_tarea` codes for the tarea form's tag picker (spec KC4/D4).
+ * Reads `v_catalogo` (active-only), so a deactivated tag is never OFFERED —
+ * which is the display half of D4. The enforcement half lives in
+ * `actions.ts`'s `assertEtiquetasActivas`, because a form that loaded its
+ * options before a tag was retired would otherwise submit it happily.
+ *
+ * Kept separate from `listColumnas` rather than folded into one parameterised
+ * catalog reader, so slice 4b's already-tested column behaviour stays
+ * byte-unchanged.
+ */
+export async function listEtiquetaOptions(): Promise<CatalogoPickerOption[]> {
+  return listCatalogoPicker(ETIQUETA_TIPO);
+}
+
+/** Active `prioridad` codes for the tarea form (same active-only surface). */
+export async function listPrioridadOptions(): Promise<CatalogoPickerOption[]> {
+  return listCatalogoPicker(PRIORIDAD_TIPO);
+}
+
+export interface CatalogoPickerOption {
+  codigo: string;
+  etiqueta: string;
+}
+
+async function listCatalogoPicker(
+  tipo: string,
+): Promise<CatalogoPickerOption[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("v_catalogo")
+    .select("codigo, etiqueta")
+    .eq("tipo", tipo)
+    .order("orden");
+
+  return (data ?? []).map((row) => ({
+    codigo: row.codigo,
+    etiqueta: row.etiqueta,
+  }));
 }

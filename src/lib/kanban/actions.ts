@@ -9,7 +9,9 @@ import type { Accion, Modulo } from "@/lib/permissions";
 import {
   etiquetasSchema,
   tareaCreateSchema,
+  tareaUpdateSchema,
   type TareaCreateInput,
+  type TareaUpdateInput,
 } from "@/lib/kanban/schemas";
 
 export interface KanbanActionState {
@@ -115,6 +117,92 @@ export async function createTareaAction(
     origen: "Kanban",
     ...(parsed.data.prioridad ? { prioridad: parsed.data.prioridad } : {}),
   });
+
+  if (error) {
+    return { error: es.common.genericError };
+  }
+
+  revalidatePath("/kanban");
+  return { success: true };
+}
+
+/**
+ * Edit a Kanban tarea (spec KT1/KT2). Same validation chain as create, and the
+ * responsable requirement holds here too: `tareaUpdateSchema` keeps it required
+ * because a Kanban row never legitimately reaches `responsable_id = null` —
+ * `borrador_sin_responsable` (domain.sql:37) exempts only `estado='borrador'`,
+ * which Kanban never writes.
+ *
+ * Optional fields are written as explicit nulls rather than omitted. Create
+ * omits them so the column default applies; an edit is the user's whole intent
+ * for that row, so an emptied field has to clear the stored value instead of
+ * silently keeping it.
+ *
+ * `estado`, `columna` and `origen` are deliberately absent from the payload.
+ * The first two are reconciled ONLY by `moveTareaAction` (slice 5b), which owns
+ * design D5's terminal-column/estado sync rule — an edit that also moved a card
+ * would let this form contradict the board. `origen` is never Kanban's to
+ * rewrite at all: only the CRM-side promote toggle flips `'CRM' <-> 'Ambos'`.
+ */
+export async function updateTareaAction(
+  tareaId: number,
+  input: TareaUpdateInput,
+): Promise<KanbanActionState> {
+  const permissionError = await assertKanbanPermission("editar");
+  if (permissionError) {
+    return { error: permissionError };
+  }
+
+  const parsed = tareaUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? es.common.genericError };
+  }
+
+  const etiquetasError = await assertEtiquetasActivas(parsed.data.etiquetas);
+  if (etiquetasError) {
+    return { error: etiquetasError };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("tarea")
+    .update({
+      titulo: parsed.data.titulo,
+      responsable_id: parsed.data.responsableId,
+      descripcion: parsed.data.descripcion ?? null,
+      cliente_id: parsed.data.clienteId ?? null,
+      fecha_limite: parsed.data.fechaLimite ?? null,
+      prioridad: parsed.data.prioridad ?? null,
+      etiquetas: parsed.data.etiquetas,
+    })
+    .eq("id", tareaId);
+
+  if (error) {
+    return { error: es.common.genericError };
+  }
+
+  revalidatePath("/kanban");
+  return { success: true };
+}
+
+/**
+ * Soft-delete a Kanban tarea (spec KT3). Calls the EXISTING
+ * `public.soft_delete_tarea` (audit.sql:362), which already branches on
+ * `origen` — Kanban needs no RPC of its own. A direct table write is not an
+ * alternative: no DELETE grant on `tarea` exists for any role, and
+ * `deleted_at` is not in the UPDATE grant either, so the definer function is
+ * the only path.
+ */
+export async function deleteTareaAction(
+  tareaId: number,
+): Promise<KanbanActionState> {
+  const permissionError = await assertKanbanPermission("eliminar");
+  if (permissionError) {
+    return { error: permissionError };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("soft_delete_tarea", { p_id: tareaId });
 
   if (error) {
     return { error: es.common.genericError };
