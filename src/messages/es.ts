@@ -335,6 +335,9 @@ export const es = {
     },
     errors: {
       etiquetaInactiva: "Esa etiqueta ya no está activa.",
+      columnaInactiva: "Esa columna ya no está activa.",
+      responsableRequeridoParaMover:
+        "Asignale un responsable antes de mover la tarea a esta columna.",
     },
   },
   dashboard: {

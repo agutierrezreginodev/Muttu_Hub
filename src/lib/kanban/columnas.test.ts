@@ -7,6 +7,7 @@ import {
   fallbackColumna,
   groupTareasByColumna,
   isTerminalColumna,
+  resolveEstadoOnMove,
   sortTareasForBoard,
 } from "@/lib/kanban/columnas";
 
@@ -262,5 +263,74 @@ describe("sortTareasForBoard (design part 2 §12 — fecha_limite -> prioridad -
     ];
     sortTareasForBoard(tareas);
     expect(tareas.map((t) => t.id)).toEqual([1, 2]);
+  });
+});
+
+/**
+ * Slice 5b — design part 1 §6's truth table, one test per row. Every row is
+ * reproduced here deliberately, including the pairs that look redundant: the
+ * evaluation ORDER (terminal destino checked before terminal origen) is what
+ * makes `cumplido -> cancelado` resolve to the destination rather than to a
+ * reopen, and only a row for each direction can catch that being flipped.
+ */
+describe("resolveEstadoOnMove (design part 1 §6, D5's sync rule)", () => {
+  it("leaves estado untouched moving between two non-terminal columns", () => {
+    expect(resolveEstadoOnMove("por_hacer", "en_revision")).toEqual({});
+  });
+
+  it("leaves estado untouched from a null (fallback) columna into en_curso", () => {
+    // The COLUMN code `en_curso` is not terminal — only cumplido/cancelado are,
+    // even though `en_curso` happens to also be a valid `estado` value.
+    expect(resolveEstadoOnMove(null, "en_curso")).toEqual({});
+  });
+
+  it("sets estado='cumplido' entering the cumplido column", () => {
+    expect(resolveEstadoOnMove("en_revision", "cumplido")).toEqual({
+      estado: "cumplido",
+    });
+  });
+
+  it("sets estado='cancelado' entering the cancelado column", () => {
+    expect(resolveEstadoOnMove("en_revision", "cancelado")).toEqual({
+      estado: "cancelado",
+    });
+  });
+
+  it("reopens to en_curso leaving cumplido for a non-terminal column", () => {
+    expect(resolveEstadoOnMove("cumplido", "por_hacer")).toEqual({
+      estado: "en_curso",
+    });
+  });
+
+  it("reopens to en_curso leaving cancelado for a non-terminal column", () => {
+    expect(resolveEstadoOnMove("cancelado", "en_revision")).toEqual({
+      estado: "en_curso",
+    });
+  });
+
+  it("terminal to terminal: the destination wins, it does not reopen", () => {
+    expect(resolveEstadoOnMove("cumplido", "cancelado")).toEqual({
+      estado: "cancelado",
+    });
+  });
+
+  it("never touches estado between two admin-created columns", () => {
+    // An admin-created code is by definition absent from
+    // TERMINAL_COLUMNA_ESTADO, so it can never own an estado.
+    expect(resolveEstadoOnMove("bloqueado", "revisado")).toEqual({});
+  });
+
+  it("reopens when the destination is an admin-created column and the source is terminal", () => {
+    expect(resolveEstadoOnMove("cumplido", "revisado")).toEqual({
+      estado: "en_curso",
+    });
+  });
+
+  it("returns a patch that never carries columna — the action owns that field", () => {
+    // The action spreads this patch over its own `{ columna: destino }`, so a
+    // `columna` key here would silently win over the actual destination.
+    expect(resolveEstadoOnMove("cumplido", "por_hacer")).not.toHaveProperty(
+      "columna",
+    );
   });
 });

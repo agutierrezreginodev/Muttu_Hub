@@ -8,11 +8,14 @@ import { getCatalogoOptions, activeCatalogoOptions } from "@/lib/crm/catalogos";
 import type { Accion, Modulo } from "@/lib/permissions";
 import {
   etiquetasSchema,
+  moveTareaSchema,
   tareaCreateSchema,
   tareaUpdateSchema,
+  type MoveTareaInput,
   type TareaCreateInput,
   type TareaUpdateInput,
 } from "@/lib/kanban/schemas";
+import { COLUMNA_TIPO, resolveEstadoOnMove } from "@/lib/kanban/columnas";
 
 export interface KanbanActionState {
   error?: string;
@@ -182,6 +185,97 @@ export async function updateTareaAction(
   }
 
   revalidatePath("/kanban");
+  return { success: true };
+}
+
+/**
+ * Move a card between columns — the ONE place `estado` and `columna` are ever
+ * reconciled (design D5/§6). Both the drag-and-drop path and the "Mover a…"
+ * menu call this, so the sync rule has a single enforcement point and there is
+ * no second door through which the two fields can drift apart. That matters
+ * beyond tidiness: the bell and the daily digest filter on
+ * `estado in ('pendiente','en_curso')`, so this action is what keeps alerts
+ * honest.
+ *
+ * `estado` is never accepted from the caller — it is derived from
+ * `resolveEstadoOnMove`.
+ */
+export async function moveTareaAction(
+  input: MoveTareaInput,
+): Promise<KanbanActionState> {
+  const permissionError = await assertKanbanPermission("editar");
+  if (permissionError) {
+    return { error: permissionError };
+  }
+
+  const parsed = moveTareaSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? es.common.genericError };
+  }
+
+  const { tareaId, columnaDestino } = parsed.data;
+  const supabase = await createClient();
+
+  const { data: row } = await supabase
+    .from("v_tarea")
+    .select("id, columna, estado, origen, responsable_id")
+    .eq("id", tareaId)
+    .maybeSingle();
+
+  // RLS already hid it; never distinguish "not yours" from "does not exist".
+  if (!row) {
+    return { error: es.common.genericError };
+  }
+
+  // Correction C5: the composite FK proves the code EXISTS in `catalogo`, but
+  // `activo` is not part of that PK — Postgres will happily accept a move into
+  // an already-deactivated column. `v_catalogo` is the active-only surface, so
+  // a miss here means the column is retired or was never a board column.
+  const { data: columnaActiva } = await supabase
+    .from("v_catalogo")
+    .select("codigo")
+    .eq("tipo", COLUMNA_TIPO)
+    .eq("codigo", columnaDestino)
+    .maybeSingle();
+
+  if (!columnaActiva) {
+    return { error: es.kanban.errors.columnaInactiva };
+  }
+
+  const patch = {
+    columna: columnaDestino,
+    ...resolveEstadoOnMove(row.columna, columnaDestino),
+  };
+
+  // Correction C4: `borrador_sin_responsable` (domain.sql:37) allows a null
+  // responsable ONLY for estado='borrador'. A CRM compromiso created as a
+  // borrador with no responsable and then promoted to origen='Ambos' (slice 9)
+  // shows up on this board — dropping it into a terminal column would set a
+  // non-borrador estado on a responsable-less row and raise a raw 23514. Keyed
+  // on "this patch sets an estado", not on "the row has no responsable", so a
+  // promoted borrador can still be moved between ordinary columns.
+  if (
+    patch.estado !== undefined &&
+    patch.estado !== "borrador" &&
+    row.responsable_id === null
+  ) {
+    return { error: es.kanban.errors.responsableRequeridoParaMover };
+  }
+
+  const { error } = await supabase
+    .from("tarea")
+    .update(patch)
+    .eq("id", tareaId);
+
+  if (error) {
+    return { error: es.common.genericError };
+  }
+
+  revalidatePath("/kanban");
+  // The layout scope is required, not belt-and-braces: the bell count (slice 10)
+  // lives in `(app)/layout.tsx`, and without this a completed task keeps
+  // showing there until the next full navigation.
+  revalidatePath("/kanban", "layout");
   return { success: true };
 }
 
