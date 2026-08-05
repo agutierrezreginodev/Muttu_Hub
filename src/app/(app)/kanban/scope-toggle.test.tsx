@@ -6,7 +6,13 @@ import { ScopeToggle } from "./scope-toggle";
 
 describe("ScopeToggle (design D10, spec KV2)", () => {
   it("offers both scopes as links, so each is a fresh server fetch", () => {
-    render(<ScopeToggle scope={BOARD_SCOPES.equipo} params={{}} />);
+    render(
+      <ScopeToggle
+        scope={BOARD_SCOPES.equipo}
+        params={{}}
+        basePath="/kanban"
+      />,
+    );
 
     // Links, not buttons with client state: "Mi tablero" has to be a QUERY, or
     // it would be a client-side filter hiding rows that already shipped.
@@ -20,7 +26,9 @@ describe("ScopeToggle (design D10, spec KV2)", () => {
   });
 
   it("marks the active scope for assistive tech, not only visually", () => {
-    render(<ScopeToggle scope={BOARD_SCOPES.mio} params={{}} />);
+    render(
+      <ScopeToggle scope={BOARD_SCOPES.mio} params={{}} basePath="/kanban" />,
+    );
 
     expect(screen.getByRole("link", { name: "Mi tablero" })).toHaveAttribute(
       "aria-current",
@@ -36,6 +44,7 @@ describe("ScopeToggle (design D10, spec KV2)", () => {
       <ScopeToggle
         scope={BOARD_SCOPES.equipo}
         params={{ prioridad: "Alta" }}
+        basePath="/kanban"
       />,
     );
 

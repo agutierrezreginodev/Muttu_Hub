@@ -5,8 +5,10 @@ import {
   PRIORIDAD_TIPO,
   type CatalogoPickerOption,
 } from "@/lib/kanban/columnas";
+import type { ClienteOption } from "@/lib/kanban/filtros";
 
 export type { CatalogoPickerOption } from "@/lib/kanban/columnas";
+export type { ClienteOption } from "@/lib/kanban/filtros";
 
 /**
  * Slice 4a scaffolding (tasks: sdd/kanban-module/tasks, "Module shell").
@@ -126,15 +128,26 @@ function mapBoardTareaRow(row: {
  * other list function in this codebase: a caller without the
  * origen-appropriate `ver` permission gets `[]`, never a thrown error.
  *
- * `responsableId` implements the "Mi tablero" scope (design D10, spec KV2) as a
- * QUERY rather than a client-side filter: the narrow scope must not merely hide
- * rows that already reached the browser. The remaining KV1 field filters
- * (prioridad, etiqueta, cliente, vencidas, sin fecha) land with the filter UI
- * in slice 6 — adding them here before a caller exercises them would be
- * untested, dead branches.
+ * Every filter is applied HERE, server-side (design D10, spec KV1/KV2), not in
+ * the component: a narrowed view must not ship the rows it hides. The board and
+ * the list view call this same function with the same filters, which is what
+ * makes KV1's "same rows, two presentations" true by construction rather than by
+ * two implementations agreeing.
+ *
+ * `vencidas` reads `v_tarea.vencido` rather than recomputing `fecha_limite <
+ * now()`: the view's expression also excludes the terminal estados, and a
+ * hand-rolled predicate here would quietly disagree with the badge the card
+ * renders. `sinFecha` and `vencidas` together can only ever return zero rows —
+ * `vencido` requires a `fecha_limite` — which is a legitimate, if useless,
+ * combination and not worth blocking.
  */
 export interface BoardFilters {
   responsableId?: string;
+  prioridad?: string;
+  etiqueta?: string;
+  clienteId?: number;
+  vencidas?: boolean;
+  sinFecha?: boolean;
 }
 
 export async function listBoardTareas(
@@ -150,6 +163,23 @@ export async function listBoardTareas(
 
   if (filters.responsableId) {
     query = query.eq("responsable_id", filters.responsableId);
+  }
+  if (filters.prioridad) {
+    query = query.eq("prioridad", filters.prioridad);
+  }
+  if (filters.etiqueta) {
+    // Array containment, backed by `tarea_etiquetas_gin_idx` (design D6) — the
+    // only index that serves D4's tag filter.
+    query = query.contains("etiquetas", [filters.etiqueta]);
+  }
+  if (filters.clienteId) {
+    query = query.eq("cliente_id", filters.clienteId);
+  }
+  if (filters.vencidas) {
+    query = query.eq("vencido", true);
+  }
+  if (filters.sinFecha) {
+    query = query.is("fecha_limite", null);
   }
 
   const { data } = await query;
@@ -191,4 +221,20 @@ async function listCatalogoPicker(
     codigo: row.codigo,
     etiqueta: row.etiqueta,
   }));
+}
+
+/**
+ * Clientes offered by the KV1 cliente filter. Reads `v_cliente`, so visibility
+ * is `cliente_select` RLS: a caller without `crm.ver` gets an empty option list
+ * rather than an error, matching every other list function here. Ordered by
+ * nombre because a picker needs a stable order.
+ */
+export async function listClienteOptions(): Promise<ClienteOption[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("v_cliente")
+    .select("id, nombre")
+    .order("nombre");
+
+  return (data ?? []).map((row) => ({ id: row.id, nombre: row.nombre }));
 }

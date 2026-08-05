@@ -3,15 +3,19 @@ import Link from "next/link";
 import { es } from "@/messages/es";
 import {
   BOARD_SCOPES,
-  buildScopeHref,
+  SCOPE_PARAM,
+  buildBoardHref,
   type BoardScope,
+  type SearchParamsRecord,
 } from "@/lib/kanban/filtros";
 import { cn } from "@/lib/utils";
 
 interface ScopeToggleProps {
   scope: BoardScope;
   /** The page's own search params, so flipping scope preserves the rest. */
-  params: Record<string, string | undefined>;
+  params: SearchParamsRecord;
+  /** The view being scoped — the board and the list share this component (KV2). */
+  basePath: string;
 }
 
 /**
@@ -23,7 +27,7 @@ interface ScopeToggleProps {
  * `aria-current="page"` marks the active scope — the styling alone would leave
  * a screen-reader user unable to tell which view they are in.
  */
-export function ScopeToggle({ scope, params }: ScopeToggleProps) {
+export function ScopeToggle({ scope, params, basePath }: ScopeToggleProps) {
   const options: { value: BoardScope; label: string }[] = [
     { value: BOARD_SCOPES.mio, label: es.kanban.scope.mio },
     { value: BOARD_SCOPES.equipo, label: es.kanban.scope.equipo },
@@ -36,7 +40,9 @@ export function ScopeToggle({ scope, params }: ScopeToggleProps) {
         return (
           <Link
             key={option.value}
-            href={buildScopeHref(params, option.value)}
+            href={buildBoardHref(basePath, params, {
+              [SCOPE_PARAM]: option.value,
+            })}
             aria-current={active ? "page" : undefined}
             className={cn(
               "flex h-11 min-h-11 items-center rounded-lg px-3 text-sm",
