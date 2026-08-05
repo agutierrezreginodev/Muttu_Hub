@@ -278,8 +278,36 @@ interface OportunidadActionInput {
 
 /**
  * Applies the FULL servicios_interes set via the `set_oportunidad_servicios`
- * RPC (task 7.4, design Decision 6). This is the single seam every
- * create/update path funnels through — never called with a partial diff.
+ * RPC (task 7.4, design Decision 6). Returns an error message or null.
+ *
+ * DELIBERATELY UNGATED — the caller owns the permission check. Extracting this
+ * is what fixes a real partial-write defect: `createOportunidadAction` gates on
+ * `crear`, but this step used to run through `setOportunidadServiciosAction`,
+ * which independently re-checked `editar`. A caller holding `crear` without
+ * `editar` therefore had the oportunidad row committed and only THEN got denied,
+ * leaving a row with an empty servicios set while the UI reported failure.
+ *
+ * Setting the servicios of an oportunidad you are creating is part of creating
+ * it, so on the create path this write belongs to `crear`, not `editar`.
+ */
+async function applyServiciosInteres(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  oportunidadId: number,
+  codigos: string[],
+): Promise<string | null> {
+  const { error } = await supabase.rpc("set_oportunidad_servicios", {
+    p_oportunidad_id: oportunidadId,
+    p_codigos: codigos,
+  });
+
+  return error ? es.common.genericError : null;
+}
+
+/**
+ * Applies the FULL servicios_interes set from the UI's multi-select. Gated on
+ * `editar` because it mutates an oportunidad that already exists; the
+ * create/update paths call `applyServiciosInteres` directly under their own
+ * gate instead of coming back through here.
  */
 export async function setOportunidadServiciosAction(
   clienteId: number,
@@ -292,13 +320,13 @@ export async function setOportunidadServiciosAction(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("set_oportunidad_servicios", {
-    p_oportunidad_id: oportunidadId,
-    p_codigos: codigos,
-  });
-
-  if (error) {
-    return { error: es.common.genericError };
+  const serviciosError = await applyServiciosInteres(
+    supabase,
+    oportunidadId,
+    codigos,
+  );
+  if (serviciosError) {
+    return { error: serviciosError };
   }
 
   revalidatePath(`/crm/${clienteId}/oportunidades`);
@@ -345,13 +373,16 @@ export async function createOportunidadAction(
     return { error: es.common.genericError };
   }
 
-  const serviciosResult = await setOportunidadServiciosAction(
-    clienteId,
+  // Called directly, NOT through setOportunidadServiciosAction: that one gates
+  // on `editar`, and this path is already gated on `crear`. Going back through
+  // it left a committed row with an empty servicios set for a crear-only caller.
+  const serviciosError = await applyServiciosInteres(
+    supabase,
     inserted.id,
     parsed.data.serviciosInteres,
   );
-  if (serviciosResult.error) {
-    return serviciosResult;
+  if (serviciosError) {
+    return { error: serviciosError };
   }
 
   revalidatePath(`/crm/${clienteId}/oportunidades`);
@@ -397,13 +428,16 @@ export async function updateOportunidadAction(
     return { error: es.common.genericError };
   }
 
-  const serviciosResult = await setOportunidadServiciosAction(
-    clienteId,
+  // Same reasoning as the create path. Here the permission was already `editar`,
+  // so the old double-check was redundant rather than wrong — but routing
+  // through one ungated helper keeps a single gate per entry point.
+  const serviciosError = await applyServiciosInteres(
+    supabase,
     oportunidadId,
     parsed.data.serviciosInteres,
   );
-  if (serviciosResult.error) {
-    return serviciosResult;
+  if (serviciosError) {
+    return { error: serviciosError };
   }
 
   revalidatePath(`/crm/${clienteId}/oportunidades`);

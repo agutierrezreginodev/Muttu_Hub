@@ -635,14 +635,18 @@ describe("createOportunidadAction", () => {
     expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 
-  it("DEFECT: crear-only caller (no crm.editar) still gets the oportunidad row WRITTEN before the servicios gate denies", async () => {
-    // A role granted crm.crear but NOT crm.editar can pass the outer check,
-    // have `oportunidad.insert()` actually execute, and only THEN get
-    // denied by setOportunidadServiciosAction's own independent
-    // has_permission('crm','editar') check. The row is left in the
-    // database with an empty servicios set even though the action reports
-    // an error and the "no write on error" contract from the task brief is
-    // violated for this specific path.
+  it("REGRESSION: a crear-only caller (no crm.editar) completes the whole create, servicios included", async () => {
+    // This used to be a partial write. `createOportunidadAction` gates on
+    // `crear`, but the servicios step went through
+    // setOportunidadServiciosAction, which independently re-checked `editar`.
+    // A role holding crear WITHOUT editar therefore had `oportunidad.insert()`
+    // commit and only THEN got denied, leaving a row with an empty servicios
+    // set while the UI reported failure.
+    //
+    // The servicios write now runs through the ungated `applyServiciosInteres`
+    // helper under the create path's own `crear` gate, so the operation either
+    // completes fully or never writes. Setting the servicios of an oportunidad
+    // you are creating is part of creating it.
     const builder = insertSelectSingle({ data: { id: 9 } });
     const rpcHandler = vi.fn(() => ({ data: null, error: null }));
     const client = buildSupabaseMock({
@@ -654,10 +658,16 @@ describe("createOportunidadAction", () => {
 
     const result = await createOportunidadAction(701, OPORTUNIDAD_INPUT);
 
-    expect(builder.insert).toHaveBeenCalled(); // <- the write DID happen
-    expect(rpcHandler).not.toHaveBeenCalled(); // servicios RPC never reached
-    expect(result.error).toBeTruthy(); // yet the action reports failure
-    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(builder.insert).toHaveBeenCalled();
+    // The servicios RPC is now REACHED under the crear gate, not denied by a
+    // second editar check.
+    expect(rpcHandler).toHaveBeenCalledWith("set_oportunidad_servicios", {
+      p_oportunidad_id: 9,
+      p_codigos: OPORTUNIDAD_INPUT.serviciosInteres,
+    });
+    expect(result.success).toBe(true);
+    expect(result.error).toBeUndefined();
+    expect(revalidatePathMock).toHaveBeenCalledWith("/crm/701/oportunidades");
   });
 });
 
@@ -723,14 +733,21 @@ describe("updateOportunidadAction", () => {
     expect(result.success).toBe(true);
   });
 
-  it("DEFECT: the row UPDATE already committed even when the follow-up servicios RPC is denied at the DB layer", async () => {
-    // Both the outer (crear/editar pre-check) and the inner
-    // setOportunidadServiciosAction pre-check pass here — the denial comes
-    // from the RPC itself (e.g. Postgres RLS/permission_denied on
-    // set_oportunidad_servicios). This still proves the same defect: the
-    // `.update().eq()` on `oportunidad` already executed and committed
-    // BEFORE the servicios step is even attempted, so a later failure can
-    // never roll back the field update.
+  it("KNOWN LIMITATION: the row UPDATE stays committed when the servicios RPC fails at the DB layer", async () => {
+    // Pins a DISCLOSED limitation, not an unnoticed bug. The permission half of
+    // the old partial-write defect is fixed (see the crear-only regression test
+    // above); this is the half that remains, and it cannot be fixed in
+    // application code.
+    //
+    // The permission gate passes and the denial comes from the RPC itself — a
+    // bad catalog code, an RLS rejection, any DB-layer failure. The field
+    // update and the servicios RPC are two separate statements, so they are two
+    // separate implicit transactions: the update has already committed by the
+    // time the RPC fails, and nothing can roll it back from here.
+    //
+    // Closing it properly needs both writes inside ONE Postgres function, i.e. a
+    // new migration plus its pgTAP suite. Until then this test documents the
+    // real behavior so a future change cannot silently alter it.
     const builder = updateEq();
     const rpcHandler = vi.fn((name: string) => {
       if (name === "set_oportunidad_servicios") {
