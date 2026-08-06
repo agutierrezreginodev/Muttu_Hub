@@ -1,3 +1,29 @@
+> **✅ CLOSED — 2026-08-06.** The work that superseded this change is now COMPLETE.
+> Both capabilities shipped inside `kanban-module`, and this change is closed
+> without any of its own tasks ever being executed — which was the plan, not an
+> omission. Its 31 unchecked boxes below are deliberately left unchecked: they
+> describe work that was re-planned elsewhere, and ticking them would claim this
+> document drove it.
+>
+> Where each capability actually landed:
+>
+> | This change's capability | Delivered by | Commit |
+> | ------------------------ | ------------ | ------ |
+> | `notification-bell` | kanban slice 10 — canonical `vencimiento.ts`, `getVencimientos`, the bell in the shell | `541753a` |
+> | `daily-digest-email` (function) | kanban slices 11a + 11b — Edge Function, Resend/Mailpit transports | `b368283` |
+> | `daily-digest-email` (schedule) | kanban slice 12 — `pg_cron` + `private.run_daily_digest()` | `100c3b5` |
+> | opt-out preferences | kanban slice 13 — `/preferencias` | `be31d9c` |
+>
+> The DB layer those depend on (`notificacion_preferencia`, `digest_envio`) landed
+> earlier as kanban slice 3. Verification for the whole set: pgTAP 577/577,
+> vitest 86 files / 799 tests, Playwright 41/41, `pnpm build` clean — including a
+> live run of the deployed function that sent a real message to Mailpit and
+> refused to send a second one the same Bogota day.
+>
+> Nothing further is planned from this directory. Read it only as source material.
+>
+> ---
+>
 > **⚠️ SUPERSEDED — 2026-07-30.** This change is superseded by the `kanban-module`
 > SDD change (Engram-tracked), which absorbs BOTH capabilities (`notification-bell`,
 > `daily-digest-email`) so that Kanban and the alerting engine settle the shared
