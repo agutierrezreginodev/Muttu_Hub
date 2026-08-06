@@ -106,7 +106,22 @@ jobs:
         with:
           version: latest
 
+      # The daily-digest Edge Function reads its configuration through
+      # `[edge_runtime.secrets]`'s `env(...)` references, which resolve from
+      # THIS step's environment when the stack starts — so they must be set
+      # here, before `supabase start`, and never written to a committed file.
+      # `mailpit` rather than `resend`, so CI never sends real mail and needs
+      # no API key.
       - name: Start local Supabase stack
+        env:
+          APP_BASE_URL: http://127.0.0.1:3000
+          DIGEST_FROM_EMAIL: no-reply@muttu-hub.test
+          DIGEST_TRANSPORT: mailpit
+          # The edge runtime is a container; this is how it reaches the Mailpit
+          # the same stack exposes on the host. Verified on Docker Desktop/WSL,
+          # NOT on a Linux runner. If the digest E2E fails in CI with a
+          # connection error to this host, this is the value to change first.
+          MAILPIT_BASE_URL: http://host.docker.internal:54324
         run: supabase start
 
       - name: Install Playwright browsers
