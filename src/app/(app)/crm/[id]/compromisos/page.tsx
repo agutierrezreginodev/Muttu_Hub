@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { es } from "@/messages/es";
 import { listCompromisos } from "@/lib/crm/queries";
 import { getCatalogoOptions, activeCatalogoOptions } from "@/lib/crm/catalogos";
-import { TareaTable } from "../tarea-table";
 import { CompromisoFormDialog } from "./compromiso-form-dialog";
+import { CompromisosTable } from "./compromisos-table";
 
 export const metadata: Metadata = {
   title: `${es.crm.tabs.compromisos} · ${es.crm.title} · ${es.common.appName}`,
@@ -42,7 +42,7 @@ export default async function CompromisosPage({
           prioridadOptions={prioridadOptions}
         />
       </div>
-      <TareaTable
+      <CompromisosTable
         rows={compromisos}
         emptyMessage={es.crm.compromisos.noEntries}
       />

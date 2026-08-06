@@ -9,6 +9,7 @@ import {
   createTareaAction,
   deleteTareaAction,
   moveTareaAction,
+  togglePromoteCompromisoAction,
   updateTareaAction,
 } from "@/lib/kanban/actions";
 
@@ -951,5 +952,186 @@ describe("createComentarioAction (spec KM1, design D7/D8)", () => {
     await createComentarioAction(7, { texto: "Nota" });
 
     expect(revalidatePathMock).toHaveBeenCalledWith("/kanban/7");
+  });
+});
+
+function buildPromoteMock(options: {
+  allowed: Record<string, boolean>;
+  origen?: string | null;
+  clienteId?: number | null;
+  updateError?: unknown;
+}) {
+  const updatePayloads: Record<string, unknown>[] = [];
+  const update = vi.fn((payload: Record<string, unknown>) => {
+    updatePayloads.push(payload);
+    return {
+      eq: vi.fn(() => Promise.resolve({ error: options.updateError ?? null })),
+    };
+  });
+  const { rpc, asked } = permissionByModulo(options.allowed);
+
+  const from = vi.fn((table: string) => {
+    if (table === "v_tarea") {
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        maybeSingle: () =>
+          Promise.resolve({
+            data:
+              options.origen === null
+                ? null
+                : {
+                    id: 7,
+                    origen: options.origen ?? "CRM",
+                    cliente_id:
+                      options.clienteId === undefined ? 42 : options.clienteId,
+                  },
+            error: null,
+          }),
+      };
+      return chain;
+    }
+    return { update };
+  });
+
+  return { rpc, from, asked, update, updatePayloads };
+}
+
+/**
+ * Slice 9 (spec KP2, design D7). `origen` is the only column this action may
+ * touch, and the `'CRM' ⇄ 'Ambos'` pair is the only transition it may make.
+ */
+describe("togglePromoteCompromisoAction (slice 9)", () => {
+  beforeEach(() => {
+    mockedCreateClient.mockReset();
+    revalidatePathMock.mockReset();
+  });
+
+  it("gates on crm.editar, not on kanban — the row is CRM-origen", async () => {
+    const supabase = buildPromoteMock({
+      allowed: { crm: false, kanban: true },
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await togglePromoteCompromisoAction(7, true);
+
+    expect(result.error).toBe(es.common.genericError);
+    // `tarea_update`'s policy is origen-aware, so a `kanban` pre-check here
+    // would pass while Postgres refused the write — a gate that disagrees
+    // with the real boundary is worse than no gate.
+    expect(supabase.asked).toContainEqual({
+      modulo: "crm",
+      accion: "editar",
+    });
+    expect(supabase.update).not.toHaveBeenCalled();
+  });
+
+  it("promotes a CRM compromiso to Ambos", async () => {
+    const supabase = buildPromoteMock({
+      allowed: { crm: true },
+      origen: "CRM",
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await togglePromoteCompromisoAction(7, true);
+
+    expect(result).toEqual({ success: true });
+    expect(supabase.updatePayloads).toEqual([{ origen: "Ambos" }]);
+  });
+
+  it("demotes an Ambos compromiso back to CRM", async () => {
+    const supabase = buildPromoteMock({
+      allowed: { crm: true },
+      origen: "Ambos",
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await togglePromoteCompromisoAction(7, false);
+
+    expect(supabase.updatePayloads).toEqual([{ origen: "CRM" }]);
+  });
+
+  it("writes ONLY origen — never estado, columna or anything else", async () => {
+    const supabase = buildPromoteMock({
+      allowed: { crm: true },
+      origen: "CRM",
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await togglePromoteCompromisoAction(7, true);
+
+    expect(Object.keys(supabase.updatePayloads[0] ?? {})).toEqual(["origen"]);
+  });
+
+  it("refuses a Kanban-origen row instead of fabricating a CRM side for it", async () => {
+    const supabase = buildPromoteMock({
+      allowed: { crm: true },
+      origen: "Kanban",
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await togglePromoteCompromisoAction(7, true);
+
+    expect(result.error).toBe(es.crm.compromisos.promoteOrigenInvalido);
+    expect(supabase.update).not.toHaveBeenCalled();
+  });
+
+  it("treats an already-correct origen as success without writing", async () => {
+    const supabase = buildPromoteMock({
+      allowed: { crm: true },
+      origen: "Ambos",
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await togglePromoteCompromisoAction(7, true);
+
+    expect(result).toEqual({ success: true });
+    expect(supabase.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a row it cannot see", async () => {
+    const supabase = buildPromoteMock({
+      allowed: { crm: true },
+      origen: null,
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await togglePromoteCompromisoAction(7, true);
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(supabase.update).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the board as well as the compromisos tab", async () => {
+    const supabase = buildPromoteMock({
+      allowed: { crm: true },
+      origen: "CRM",
+      clienteId: 42,
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await togglePromoteCompromisoAction(7, true);
+
+    // Revalidating only the tab would leave the board missing the card the
+    // user just put on it.
+    expect(revalidatePathMock).toHaveBeenCalledWith(
+      "/crm/42/compromisos",
+      "page",
+    );
+    expect(revalidatePathMock).toHaveBeenCalledWith("/kanban");
+  });
+
+  it("surfaces a write failure rather than reporting success", async () => {
+    const supabase = buildPromoteMock({
+      allowed: { crm: true },
+      origen: "CRM",
+      updateError: { message: "denied" },
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await togglePromoteCompromisoAction(7, true);
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(revalidatePathMock).not.toHaveBeenCalled();
   });
 });

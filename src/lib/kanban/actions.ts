@@ -397,3 +397,99 @@ export async function deleteTareaAction(
   revalidatePath("/kanban");
   return { success: true };
 }
+
+/**
+ * Gate for the promote toggle, scoped to `crm` rather than `kanban`.
+ *
+ * Duplicated from `src/lib/crm/actions.ts` rather than imported, the same way
+ * `PRIORIDAD_TIPO` and `optionalTrimmed` are duplicated across these modules:
+ * a cross-module import for four lines would couple Kanban's action surface to
+ * CRM's private helpers. The module in the check is the load-bearing part —
+ * the row being edited is CRM-origen, and `tarea_update`'s origen-aware policy
+ * (audit.sql:197-217) evaluates `crm`, so gating on `kanban` here would
+ * disagree with the real boundary.
+ */
+async function assertCrmPermission(accion: Accion): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: allowed, error } = await supabase.rpc("has_permission", {
+    modulo: "crm" satisfies Modulo,
+    accion,
+  });
+
+  if (error || !allowed) {
+    return es.common.genericError;
+  }
+
+  return null;
+}
+
+/** `origen` values this action is allowed to move between (D7/KP2). */
+const ORIGEN_SOLO_CRM = "CRM";
+const ORIGEN_AMBOS = "Ambos";
+
+/**
+ * Promote a CRM compromiso onto the Kanban board, or take it back off
+ * (slice 9, spec KP2, design D7).
+ *
+ * Flips `origen` between `'CRM'` and `'Ambos'` and touches nothing else. The
+ * promoted row keeps living in the Compromisos tab — `COMPROMISO_ORIGENES`
+ * already admits `'Ambos'` — while also matching the board's
+ * `TAREA_KANBAN_ORIGENES`. That overlap IS the feature, not a leak.
+ *
+ * A `'Kanban'`-origen row is refused outright rather than silently ignored: it
+ * is already on the board, it has no CRM side to promote from, and writing
+ * `'Ambos'` onto it would fabricate a client relationship the row never had.
+ *
+ * Both paths revalidate the board as well as the tab. A promotion that only
+ * refreshed the tab would leave the user staring at a board that is missing
+ * the card they just put on it.
+ */
+export async function togglePromoteCompromisoAction(
+  tareaId: number,
+  promote: boolean,
+): Promise<KanbanActionState> {
+  const permissionError = await assertCrmPermission("editar");
+  if (permissionError) {
+    return { error: permissionError };
+  }
+
+  const supabase = await createClient();
+  const { data: tarea } = await supabase
+    .from("v_tarea")
+    .select("id, origen, cliente_id")
+    .eq("id", tareaId)
+    .maybeSingle();
+
+  if (!tarea) {
+    return { error: es.common.genericError };
+  }
+
+  // Only the CRM ⇄ Ambos pair is reachable from here.
+  const origenActual: string = tarea.origen;
+  if (origenActual !== ORIGEN_SOLO_CRM && origenActual !== ORIGEN_AMBOS) {
+    return { error: es.crm.compromisos.promoteOrigenInvalido };
+  }
+
+  const origenDestino = promote ? ORIGEN_AMBOS : ORIGEN_SOLO_CRM;
+  if (origenActual === origenDestino) {
+    // Already where the caller wants it — a double-click or a stale render,
+    // not a failure. Revalidating still costs nothing and re-syncs the view.
+    revalidatePath("/kanban");
+    return { success: true };
+  }
+
+  const { error } = await supabase
+    .from("tarea")
+    .update({ origen: origenDestino })
+    .eq("id", tareaId);
+
+  if (error) {
+    return { error: es.common.genericError };
+  }
+
+  if (tarea.cliente_id !== null) {
+    revalidatePath(`/crm/${tarea.cliente_id}/compromisos`, "page");
+  }
+  revalidatePath("/kanban");
+  return { success: true };
+}

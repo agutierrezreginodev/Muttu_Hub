@@ -14,6 +14,7 @@ function makeTarea(overrides: Partial<TareaListItem> = {}): TareaListItem {
     estado: "pendiente",
     prioridad: "Alta",
     vencido: false,
+    origen: "CRM",
     ...overrides,
   };
 }
