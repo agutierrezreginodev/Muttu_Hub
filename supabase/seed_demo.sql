@@ -107,13 +107,17 @@ insert into public.catalogo (tipo, codigo, etiqueta, orden) values
   ('categoria_documento', 'fiscal',     'Fiscal',       6)
 on conflict (tipo, codigo) do nothing;
 
--- Columnas del tablero kanban
-insert into public.catalogo (tipo, codigo, etiqueta, orden) values
-  ('columna_tablero', 'pendiente',   'Pendiente',   1),
-  ('columna_tablero', 'en_curso',    'En curso',    2),
-  ('columna_tablero', 'en_revision', 'En revisión', 3),
-  ('columna_tablero', 'hecho',       'Hecho',       4)
-on conflict (tipo, codigo) do nothing;
+-- Columnas del tablero kanban: NO se seedean acá.
+--
+-- Las define la migración 20260730181704_kanban_tablero.sql (kanban-module PR1a),
+-- con el juego canónico del PRD §5.1: por_hacer, en_curso, en_revision, cumplido,
+-- cancelado. Este archivo las seedeaba por su cuenta (`pendiente`, `en_curso`,
+-- `en_revision`, `hecho`) porque se escribió ANTES de que esa migración existiera.
+--
+-- Al coexistir ambos juegos el tablero mostraba 7 columnas, con dos pares que
+-- significan lo mismo (Pendiente/Por hacer y Completada/Hecho). El `on conflict do
+-- nothing` no lo evitaba: los códigos son distintos, así que no hay conflicto que
+-- detectar. Los valores de `columna` en las tareas de abajo usan los canónicos.
 
 -- Etiquetas kanban
 insert into public.catalogo (tipo, codigo, etiqueta, orden) values
@@ -335,17 +339,17 @@ begin
 
   insert into public.tarea (titulo, descripcion, responsable_id, cliente_id, fecha_limite, estado, prioridad, prioridad_cat_tipo, columna, columna_cat_tipo, etiquetas, origen)
   values -- Columna: Pendiente
-         ('Revisar contrato marco con Grupo Andino', 'Verificar que las cláusulas de SLA coincidan con lo conversado en la última reunión.', v_admin_id, v_cliente_a_id, current_date + interval '2 days', 'pendiente', 'Alta', 'prioridad', 'pendiente', 'columna_tablero', array['urgente','cliente-a'], 'Ambos'),
-         ('Agendar demo técnica con equipo de TI', 'Coordinar con Carlos Mendoza fecha para el demo del nuevo ERP.', v_admin_id, v_cliente_a_id, current_date + interval '5 days', 'pendiente', 'Media', 'prioridad', 'pendiente', 'columna_tablero', array['reunion','cliente-a'], 'Kanban'),
-         ('Preparar propuesta económica v2', 'Ajustar márgenes según feedback de María y reenviar.', v_admin_id, v_cliente_a_id, current_date + interval '1 day', 'pendiente', 'Alta', 'prioridad', 'pendiente', 'columna_tablero', array['urgente','facturacion','cliente-a'], 'Kanban'),
+         ('Revisar contrato marco con Grupo Andino', 'Verificar que las cláusulas de SLA coincidan con lo conversado en la última reunión.', v_admin_id, v_cliente_a_id, current_date + interval '2 days', 'pendiente', 'Alta', 'prioridad', 'por_hacer', 'columna_tablero', array['urgente','cliente-a'], 'Ambos'),
+         ('Agendar demo técnica con equipo de TI', 'Coordinar con Carlos Mendoza fecha para el demo del nuevo ERP.', v_admin_id, v_cliente_a_id, current_date + interval '5 days', 'pendiente', 'Media', 'prioridad', 'por_hacer', 'columna_tablero', array['reunion','cliente-a'], 'Kanban'),
+         ('Preparar propuesta económica v2', 'Ajustar márgenes según feedback de María y reenviar.', v_admin_id, v_cliente_a_id, current_date + interval '1 day', 'pendiente', 'Alta', 'prioridad', 'por_hacer', 'columna_tablero', array['urgente','facturacion','cliente-a'], 'Kanban'),
          -- Columna: En curso
          ('Implementación sistema facturación Disur', 'Configurando el POS y la integración con DIAN. Llevamos 60% de avance.', v_admin_id, v_cliente_b_id, current_date + interval '7 days', 'en_curso', 'Alta', 'prioridad', 'en_curso', 'columna_tablero', array['cliente-b'], 'Kanban'),
          ('Workshop de ciberseguridad — preparación', 'Armando los slides del primer workshop del programa mensual.', v_admin_id, v_cliente_a_id, current_date + interval '3 days', 'en_curso', 'Media', 'prioridad', 'en_curso', 'columna_tablero', array['reunion','interno'], 'Kanban'),
          -- Columna: En revisión (estado sigue siendo en_curso)
          ('Migración de base de datos Oracle a PostgreSQL', 'Migración en revisión por el equipo de TI del cliente. Pendiente aprobación.', v_admin_id, v_cliente_a_id, current_date + interval '4 days', 'en_curso', 'Alta', 'prioridad', 'en_revision', 'columna_tablero', array['cliente-a'], 'Kanban'),
          -- Columna: Hecho
-         ('Kickoff con Grupo Andino', 'Reunión de kickoff realizada. Acta firmada y enviada.', v_admin_id, v_cliente_a_id, current_date - interval '8 days', 'cumplido', 'Alta', 'prioridad', 'hecho', 'columna_tablero', array['cliente-a'], 'Ambos'),
-         ('Cierre administrativo contrato Disur', 'Contrato firmado y archivado en el sistema.', v_admin_id, v_cliente_b_id, current_date - interval '12 days', 'cumplido', 'Media', 'prioridad', 'hecho', 'columna_tablero', array['cliente-b','facturacion'], 'Kanban')
+         ('Kickoff con Grupo Andino', 'Reunión de kickoff realizada. Acta firmada y enviada.', v_admin_id, v_cliente_a_id, current_date - interval '8 days', 'cumplido', 'Alta', 'prioridad', 'cumplido', 'columna_tablero', array['cliente-a'], 'Ambos'),
+         ('Cierre administrativo contrato Disur', 'Contrato firmado y archivado en el sistema.', v_admin_id, v_cliente_b_id, current_date - interval '12 days', 'cumplido', 'Media', 'prioridad', 'cumplido', 'columna_tablero', array['cliente-b','facturacion'], 'Kanban')
   on conflict do nothing;
 
   -- ---------------------------------------------------------------------
