@@ -8,6 +8,8 @@ import { es } from "@/messages/es";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
 import { UserMenu } from "@/components/shell/user-menu";
+import { NotificationBell } from "@/components/notificaciones/notification-bell";
+import type { VencimientoItem } from "@/lib/notificaciones/vencimiento";
 
 /**
  * Nav link with the brand "riel" active-state indicator: a 3px rose-500
@@ -48,6 +50,12 @@ interface AppShellProps {
   canAccessKanban: boolean;
   /** UX only (task 2.6) — hides/shows the Dashboard link. Never the real gate: the actual gate is (app)/dashboard/layout.tsx's has_permission() RPC plus every domain RLS policy each face's aggregation view reads through. */
   canAccessDashboard: boolean;
+  /**
+   * Due and nearly-due tareas for the current user (slice 10), fetched by the
+   * server layout. Passed down rather than fetched in the bell so the shell
+   * stays a single render pass with no client-side data loading.
+   */
+  vencimientos: VencimientoItem[];
   children: React.ReactNode;
 }
 
@@ -64,6 +72,7 @@ export function AppShell({
   canAccessCrm,
   canAccessKanban,
   canAccessDashboard,
+  vencimientos,
   children,
 }: AppShellProps) {
   useIdleLogout();
@@ -117,7 +126,11 @@ export function AppShell({
           ) : null}
         </nav>
 
-        <div className="mt-auto border-t border-sidebar-border pt-3 min-[860px]:mt-6">
+        <div className="mt-auto flex flex-col gap-1 border-t border-sidebar-border pt-3 min-[860px]:mt-6">
+          <NotificationBell
+            count={vencimientos.length}
+            items={vencimientos}
+          />
           <UserMenu nombre={userNombre} email={userEmail} />
         </div>
       </aside>

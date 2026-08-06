@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSessionContext } from "@/lib/session/get-session-context";
 import { hasPermission } from "@/lib/permissions";
+import { getVencimientos } from "@/lib/notificaciones/queries";
 import { AppShell } from "@/components/shell/app-shell";
 
 /**
@@ -45,6 +46,15 @@ export default async function AppLayout({
     ? hasPermission(sessionContext.permisos, "dashboard", "ver")
     : false;
 
+  // Slice 10. Fetched here, in the layout, so the bell is server-rendered on
+  // every page rather than fetching for itself on the client. RLS decides
+  // what `v_tarea` returns, so a caller without kanban/crm visibility simply
+  // gets an empty list — no permission flag gates this, and none should:
+  // the rows are the caller's OWN tareas.
+  const vencimientos = sessionContext
+    ? await getVencimientos(sessionContext.userId)
+    : [];
+
   return (
     <AppShell
       userNombre={sessionContext?.nombre ?? user.email ?? ""}
@@ -53,6 +63,7 @@ export default async function AppLayout({
       canAccessCrm={canAccessCrm}
       canAccessKanban={canAccessKanban}
       canAccessDashboard={canAccessDashboard}
+      vencimientos={vencimientos}
     >
       {children}
     </AppShell>
