@@ -21,6 +21,12 @@
 
 export const COLUMNA_TIPO = "columna_tablero" as const;
 export const ETIQUETA_TIPO = "etiqueta_tarea" as const;
+/**
+ * Catalog `tipo` behind `tarea.prioridad`. Duplicated from CRM rather than
+ * imported, for the same module-independence reason `schemas.ts` duplicates
+ * `optionalTrimmed`: the shared value is the DB's, not one module's to own.
+ */
+export const PRIORIDAD_TIPO = "prioridad" as const;
 
 /**
  * Reserved terminal column codes -> the `tarea.estado` they own (design D1,

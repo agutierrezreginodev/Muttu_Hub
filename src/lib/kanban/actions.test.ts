@@ -3,7 +3,11 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { createClient } from "@/lib/supabase/server";
 import { getCatalogoOptions } from "@/lib/crm/catalogos";
 import { es } from "@/messages/es";
-import { createTareaAction } from "@/lib/kanban/actions";
+import {
+  createTareaAction,
+  deleteTareaAction,
+  updateTareaAction,
+} from "@/lib/kanban/actions";
 
 const revalidatePathMock = vi.fn();
 vi.mock("next/cache", () => ({
@@ -58,6 +62,20 @@ function insertOnly(result: { error?: unknown } = {}) {
   return { insert };
 }
 
+/**
+ * `.update(payload).eq("id", tareaId)` — the terminal `eq` resolves, so both the
+ * payload and the row scoping are assertable. Same reason `insertOnly` declares
+ * its ignored parameter: without it the inferred call signature is zero-arg and
+ * `mock.calls[0][0]` fails `tsc --noEmit`.
+ */
+function updateOnly(result: { error?: unknown } = {}) {
+  const eq = vi.fn((_column: string, _value: unknown) =>
+    Promise.resolve({ error: result.error ?? null }),
+  );
+  const update = vi.fn((_payload: Record<string, unknown>) => ({ eq }));
+  return { update, eq };
+}
+
 /** Active `etiqueta_tarea` codes plus one DEACTIVATED, to drive both branches. */
 function catalogoMap() {
   return new Map([
@@ -74,6 +92,15 @@ function catalogoMap() {
 const VALID_CREATE = {
   titulo: "Preparar acta del comité",
   responsableId: "user-kanban-1",
+  etiquetas: ["comercial"],
+};
+
+const VALID_UPDATE = {
+  titulo: "Preparar acta del comité (v2)",
+  responsableId: "user-kanban-2",
+  descripcion: "Incluir los acuerdos de la última sesión.",
+  fechaLimite: "2026-09-01",
+  prioridad: "Alta",
   etiquetas: ["comercial"],
 };
 
@@ -245,6 +272,248 @@ describe("createTareaAction (spec KT2, PRD §5.2/§5.3)", () => {
     mockedCreateClient.mockResolvedValue(supabase as never);
 
     await createTareaAction(VALID_CREATE);
+
+    expect(revalidatePathMock).toHaveBeenCalledWith("/kanban");
+  });
+});
+
+/** Captures every `(modulo, accion)` pair the action pre-checks. */
+function permissionSpy(allowed: boolean) {
+  const asked: { modulo: string; accion: string }[] = [];
+  const rpc = vi.fn((name: string, args?: unknown) => {
+    if (name === "has_permission") {
+      const typed = args as { modulo?: string; accion?: string } | undefined;
+      asked.push({ modulo: typed?.modulo ?? "", accion: typed?.accion ?? "" });
+      return Promise.resolve({ data: allowed, error: null });
+    }
+    return Promise.resolve({ data: null, error: null });
+  });
+  return { rpc, asked };
+}
+
+describe("updateTareaAction (spec KT1/KT2)", () => {
+  it("refuses without kanban.editar and never reaches the table", async () => {
+    const supabase = buildSupabaseMock({ hasPermission: false });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await updateTareaAction(7, VALID_UPDATE);
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("asks for editar, not crear", async () => {
+    const { rpc, asked } = permissionSpy(true);
+    mockedCreateClient.mockResolvedValue({
+      rpc,
+      from: vi.fn(() => updateOnly()),
+    } as never);
+
+    await updateTareaAction(7, VALID_UPDATE);
+
+    expect(asked).toContainEqual({ modulo: "kanban", accion: "editar" });
+    expect(asked.map((entry) => entry.accion)).not.toContain("crear");
+  });
+
+  it("scopes the write to the given tarea id", async () => {
+    const table = updateOnly();
+    const supabase = buildSupabaseMock({
+      hasPermission: true,
+      fromHandler: () => table,
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await updateTareaAction(7, VALID_UPDATE);
+
+    expect(result.success).toBe(true);
+    expect(supabase.from).toHaveBeenCalledWith("tarea");
+    expect(table.eq).toHaveBeenCalledWith("id", 7);
+    expect(table.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        titulo: "Preparar acta del comité (v2)",
+        responsable_id: "user-kanban-2",
+        descripcion: "Incluir los acuerdos de la última sesión.",
+        fecha_limite: "2026-09-01",
+        prioridad: "Alta",
+        etiquetas: ["comercial"],
+      }),
+    );
+  });
+
+  it("never writes estado, columna or origen", async () => {
+    const table = updateOnly();
+    const supabase = buildSupabaseMock({
+      hasPermission: true,
+      fromHandler: () => table,
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await updateTareaAction(7, VALID_UPDATE);
+
+    // Those three are reconciled ONLY by `moveTareaAction` (slice 5b), which
+    // owns design D5's terminal-column/estado sync rule. An edit that also
+    // moved a card would let the form silently contradict the board — and
+    // `origen` is never Kanban's to rewrite at all (only the CRM-side promote
+    // toggle flips 'CRM' <-> 'Ambos').
+    const payload = table.update.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("estado");
+    expect(payload).not.toHaveProperty("columna");
+    expect(payload).not.toHaveProperty("origen");
+  });
+
+  it("clears an omitted optional field instead of leaving a stale value", async () => {
+    const table = updateOnly();
+    const supabase = buildSupabaseMock({
+      hasPermission: true,
+      fromHandler: () => table,
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await updateTareaAction(7, {
+      titulo: "Sólo el título",
+      responsableId: "user-kanban-2",
+      etiquetas: [],
+    });
+
+    // Unlike create (which omits the key so the column default applies), edit
+    // is the user's whole intent for the row: an emptied field must be
+    // written as null, or a cleared fecha/prioridad/descripción would silently
+    // keep its old value.
+    expect(table.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        descripcion: null,
+        fecha_limite: null,
+        prioridad: null,
+        cliente_id: null,
+        etiquetas: [],
+      }),
+    );
+  });
+
+  it("rejects a blank titulo", async () => {
+    const supabase = buildSupabaseMock({ hasPermission: true });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await updateTareaAction(7, {
+      ...VALID_UPDATE,
+      titulo: "   ",
+    });
+
+    expect(result.error).toBe(es.common.requiredField);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects clearing the responsable — the requirement holds on edit too", async () => {
+    const supabase = buildSupabaseMock({ hasPermission: true });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    // Spec KT1 applies to BOTH write paths: a Kanban row never legitimately
+    // reaches responsable_id = null, because `borrador_sin_responsable`
+    // (domain.sql:37) only exempts estado='borrador', which Kanban never writes.
+    const result = await updateTareaAction(7, {
+      ...VALID_UPDATE,
+      responsableId: "",
+    });
+
+    expect(result.error).toBe(es.common.requiredField);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects an etiqueta whose catalog code is deactivated", async () => {
+    const supabase = buildSupabaseMock({ hasPermission: true });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await updateTareaAction(7, {
+      ...VALID_UPDATE,
+      etiquetas: ["comercial", "retirada"],
+    });
+
+    expect(result.error).toBe(es.kanban.errors.etiquetaInactiva);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a write failure instead of reporting success", async () => {
+    const table = updateOnly({ error: { message: "update denied" } });
+    const supabase = buildSupabaseMock({
+      hasPermission: true,
+      fromHandler: () => table,
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await updateTareaAction(7, VALID_UPDATE);
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(result.success).toBeUndefined();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the board", async () => {
+    const supabase = buildSupabaseMock({
+      hasPermission: true,
+      fromHandler: () => updateOnly(),
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await updateTareaAction(7, VALID_UPDATE);
+
+    expect(revalidatePathMock).toHaveBeenCalledWith("/kanban");
+  });
+});
+
+describe("deleteTareaAction (spec KT3)", () => {
+  it("refuses without kanban.eliminar and never calls the RPC", async () => {
+    const { rpc, asked } = permissionSpy(false);
+    mockedCreateClient.mockResolvedValue({ rpc, from: vi.fn() } as never);
+
+    const result = await deleteTareaAction(7);
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(asked).toContainEqual({ modulo: "kanban", accion: "eliminar" });
+    expect(rpc).not.toHaveBeenCalledWith(
+      "soft_delete_tarea",
+      expect.anything(),
+    );
+  });
+
+  it("soft-deletes through the existing origen-aware RPC, never a table write", async () => {
+    const { rpc } = permissionSpy(true);
+    const from = vi.fn();
+    mockedCreateClient.mockResolvedValue({ rpc, from } as never);
+
+    const result = await deleteTareaAction(7);
+
+    // KT3: `soft_delete_tarea` (audit.sql:312) already branches on origen, so
+    // Kanban needs NO new RPC — and no DELETE grant exists on `tarea` for
+    // anyone, which is why a direct table write is not an alternative here.
+    expect(result.success).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("soft_delete_tarea", { p_id: 7 });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an RPC failure instead of reporting success", async () => {
+    const rpc = vi.fn((name: string) => {
+      if (name === "has_permission") {
+        return Promise.resolve({ data: true, error: null });
+      }
+      return Promise.resolve({
+        data: null,
+        error: { message: "soft delete denied" },
+      });
+    });
+    mockedCreateClient.mockResolvedValue({ rpc, from: vi.fn() } as never);
+
+    const result = await deleteTareaAction(7);
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(result.success).toBeUndefined();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the board", async () => {
+    const { rpc } = permissionSpy(true);
+    mockedCreateClient.mockResolvedValue({ rpc, from: vi.fn() } as never);
+
+    await deleteTareaAction(7);
 
     expect(revalidatePathMock).toHaveBeenCalledWith("/kanban");
   });

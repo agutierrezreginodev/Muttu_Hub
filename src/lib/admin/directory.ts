@@ -3,12 +3,14 @@ import {
   resolveUsuarioLabel,
   type RolOption,
   type UsuarioDirectory,
+  type UsuarioOption,
 } from "@/lib/admin/directory-options";
 
 export type {
   RolOption,
   UsuarioDirectory,
   UsuarioDirectoryEntry,
+  UsuarioOption,
 } from "@/lib/admin/directory-options";
 export { resolveUsuarioLabel };
 
@@ -38,6 +40,23 @@ export async function getUsuarioDirectory(): Promise<UsuarioDirectory> {
     directory.set(row.id, { nombre: row.nombre, email: row.email });
   }
   return directory;
+}
+
+/**
+ * Active users as a flat, name-ordered option list — the source for a
+ * responsable `<Select>` (Kanban's tarea form, spec KT1). Same `v_usuario_activo`
+ * read as `getUsuarioDirectory`, kept as its own function rather than derived
+ * from that Map because a picker needs a defined order and the Map is keyed by
+ * uuid. Empty list, never an error, matching every other list function here.
+ */
+export async function listUsuarioOptions(): Promise<UsuarioOption[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("v_usuario_activo")
+    .select("id, nombre")
+    .order("nombre");
+
+  return (data ?? []).map((row) => ({ id: row.id, nombre: row.nombre }));
 }
 
 /** All roles (active and inactive) — rol is readable by every authenticated user (permissions are not secret, design decision). */

@@ -317,6 +317,21 @@ export const es = {
     tarjeta: {
       vencida: "Vencida",
       sinFecha: "Sin fecha",
+      crear: "Nueva tarea",
+      crearTitulo: "Nueva tarea",
+      editarTitulo: "Editar tarea",
+      titulo: "Título",
+      descripcion: "Descripción",
+      responsable: "Responsable",
+      fechaLimite: "Fecha límite",
+      prioridad: "Prioridad",
+      etiquetas: "Etiquetas",
+      createSuccess: "Tarea creada.",
+      updateSuccess: "Tarea actualizada.",
+      deleteConfirmTitle: "Eliminar tarea",
+      deleteConfirmDescription:
+        "La tarea deja de verse en el tablero. No se borra del historial.",
+      deleteSuccess: "Tarea eliminada.",
     },
     errors: {
       etiquetaInactiva: "Esa etiqueta ya no está activa.",

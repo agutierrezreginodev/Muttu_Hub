@@ -12,6 +12,19 @@ export interface RolOption {
 }
 
 /**
+ * One entry of a responsable `<Select>`'s option list — the flat, ordered
+ * counterpart to `UsuarioDirectory`'s id-keyed Map. A picker needs a stable
+ * render order, which a Map keyed by uuid cannot give; the Map stays the right
+ * shape for resolving a stored id to a label. Lives in this pure file so a
+ * `"use client"` form can import the type without dragging the server-only
+ * `directory.ts` into the client bundle.
+ */
+export interface UsuarioOption {
+  id: string;
+  nombre: string;
+}
+
+/**
  * Pure, client-safe usuario-directory helper (split out of `directory.ts`
  * during `documentos-repositorio` PR5a, per the exact bug/fix already
  * documented in `@/lib/crm/catalogo-options`): `directory.ts` also exports
