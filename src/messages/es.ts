@@ -412,6 +412,17 @@ export const es = {
         "Esta vista muestra únicamente lo que está a tu nombre. «Mis compromisos de clientes» cuenta solo los que nacen del CRM; las demás cifras incluyen tanto tus compromisos como tus tareas del tablero.",
     },
   },
+  preferencias: {
+    nav: "Preferencias",
+    title: "Preferencias",
+    resumenDiario: {
+      titulo: "Notificaciones por correo",
+      label: "Recibir el resumen diario por correo",
+      ayuda:
+        "Un correo cada mañana con tus tareas vencidas y las que vencen en los próximos tres días. Si lo desactivás, seguís viendo todo dentro de Muttu Hub: esta preferencia solo afecta al correo.",
+      guardado: "Preferencias guardadas.",
+    },
+  },
 } as const;
 
 export type Messages = typeof es;

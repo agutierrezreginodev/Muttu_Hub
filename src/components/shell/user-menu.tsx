@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { logoutAction } from "@/lib/auth/actions";
 import { es } from "@/messages/es";
@@ -40,6 +41,14 @@ export function UserMenu({ nombre, email }: UserMenuProps) {
           <p className="truncate px-2 py-1 text-sm text-muted-foreground">
             {email}
           </p>
+          <Link
+            href="/preferencias"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex h-11 min-h-11 items-center rounded-md px-3 text-base hover:bg-accent"
+          >
+            {es.preferencias.nav}
+          </Link>
           <form action={logoutAction}>
             <Button
               type="submit"
