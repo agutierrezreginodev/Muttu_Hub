@@ -26,14 +26,15 @@ test.describe("campana de vencimientos", () => {
 
     // A tarea due inside the 72h window, owned by the caller (the form
     // defaults responsable to the current user, KT1).
-    await page.getByRole("button", { name: "Crear tarea" }).click();
+    await page.getByRole("button", { name: "Nueva tarea" }).click();
+    // Scoped to the dialog: the board's filter form repeats these labels.
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Título").fill(titulo);
     const enDosDias = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
     await dialog.getByLabel("Fecha límite").fill(enDosDias);
-    await dialog.getByRole("button", { name: "Guardar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
 
     await expect(page.getByText(titulo).first()).toBeVisible({
       timeout: 45_000,
@@ -57,10 +58,10 @@ test.describe("campana de vencimientos", () => {
     const titulo = `Sin fecha ${Date.now()}`;
 
     await page.goto("/kanban");
-    await page.getByRole("button", { name: "Crear tarea" }).click();
+    await page.getByRole("button", { name: "Nueva tarea" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Título").fill(titulo);
-    await dialog.getByRole("button", { name: "Guardar" }).click();
+    await page.getByRole("button", { name: "Guardar" }).click();
     await expect(page.getByText(titulo).first()).toBeVisible({
       timeout: 45_000,
     });
