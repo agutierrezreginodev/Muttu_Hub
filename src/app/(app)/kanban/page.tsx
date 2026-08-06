@@ -9,6 +9,7 @@ import {
 } from "@/lib/kanban/columnas";
 import type { SearchParamsRecord } from "@/lib/kanban/filtros";
 import { KanbanBoard } from "./board";
+import { BoardFilters } from "./board-filters";
 import type { BoardColumnData } from "./board-column";
 import { ScopeToggle } from "./scope-toggle";
 import { TareaFormDialog, type TareaFormOptions } from "./tarea-form-dialog";
@@ -44,6 +45,7 @@ export default async function KanbanPage({ searchParams }: KanbanPageProps) {
     usuarioOptions,
     prioridadOptions,
     etiquetaOptions,
+    clienteOptions,
     defaultResponsableId,
   } = await loadBoardView(params);
 
@@ -90,6 +92,15 @@ export default async function KanbanPage({ searchParams }: KanbanPageProps) {
           <TareaFormDialog mode="create" {...formOptions} />
         </div>
       </div>
+      <BoardFilters
+        values={filters}
+        params={params}
+        basePath={BOARD_PATH}
+        usuarioOptions={usuarioOptions}
+        prioridadOptions={prioridadOptions}
+        etiquetaOptions={etiquetaOptions}
+        clienteOptions={clienteOptions}
+      />
       <KanbanBoard columns={columns} formOptions={formOptions} />
     </div>
   );

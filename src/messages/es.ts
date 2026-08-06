@@ -314,6 +314,19 @@ export const es = {
     columnas: {
       emptyState: "No hay tareas en esta columna.",
     },
+    filtros: {
+      label: "Filtros",
+      responsable: "Responsable",
+      prioridad: "Prioridad",
+      etiqueta: "Etiqueta",
+      cliente: "Cliente",
+      vencidas: "Sólo vencidas",
+      sinFecha: "Sin fecha",
+      todos: "Todos",
+      todas: "Todas",
+      aplicar: "Aplicar",
+      limpiar: "Limpiar filtros",
+    },
     scope: {
       label: "Alcance del tablero",
       mio: "Mi tablero",
