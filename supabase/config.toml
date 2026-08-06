@@ -53,7 +53,11 @@ default_pool_size = 20
 # Maximum number of client connections allowed.
 max_client_conn = 100
 
-# [db.vault]
+# Vault holds the two secrets `private.run_daily_digest()` reads (kanban
+# slice 12). They live here rather than in a database GUC on purpose: a GUC
+# is readable by `authenticated` via current_setting(), which would hand the
+# service-role key to every logged-in user.
+[db.vault]
 # secret_key = "env(SECRET_VALUE)"
 
 [db.migrations]
@@ -382,8 +386,23 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+# Secrets the daily-digest function reads from Deno.env (kanban slice 11).
+# Set real values with `supabase secrets set` — never commit them here.
+[edge_runtime.secrets]
+# Read from the CLI process's environment, so nothing is ever written to a
+# committed file. Export them before `supabase start` (locally and in CI).
+APP_BASE_URL = "env(APP_BASE_URL)"
+DIGEST_FROM_EMAIL = "env(DIGEST_FROM_EMAIL)"
+DIGEST_TRANSPORT = "env(DIGEST_TRANSPORT)"
+MAILPIT_BASE_URL = "env(MAILPIT_BASE_URL)"
+
+# Daily digest (kanban slices 11-12). `verify_jwt = true` keeps the platform
+# gate on; index.ts additionally requires the bearer token to EQUAL the
+# service-role key, because pg_cron is the only legitimate caller and there is
+# no user session to authenticate against.
+[functions.daily-digest]
+enabled = true
+verify_jwt = true
 
 [analytics]
 enabled = true

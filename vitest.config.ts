@@ -12,7 +12,11 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    // `supabase/functions` is excluded from tsconfig (the Edge Function is
+    // Deno code tsc cannot read), but its PURE modules are ordinary
+    // TypeScript and must actually run under vitest — otherwise the
+    // "vitest-testable Edge Function" claim is only a claim.
+    include: ["src/**/*.test.{ts,tsx}", "supabase/functions/**/*.test.ts"],
   },
   resolve: {
     alias: {

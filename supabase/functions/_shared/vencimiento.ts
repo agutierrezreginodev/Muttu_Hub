@@ -105,6 +105,34 @@ export function classify(row: VencimientoRow, now: Date): VencimientoEstado | nu
  * stays correct if Colombia ever adopts DST — and the UTC-midnight test would
  * fail loudly rather than silently drift if the runtime lacked the timezone.
  */
+/**
+ * Where an alert takes the reader (NB4, N5 closed).
+ *
+ * Lives here rather than in `src/` because it has TWO consumers that must
+ * agree: the bell's links and the digest email's links. The Edge Function
+ * cannot import from `src/`, so leaving this on the app side would mean
+ * writing the rule twice — the exact duplication this module exists to
+ * prevent, and the kind that diverges silently because nothing renders both
+ * side by side.
+ *
+ * A CRM-side row goes to the client's Compromisos tab, where its context is:
+ * the cliente, the sibling compromisos, the bitácora. `'Ambos'` counts as
+ * CRM — a promoted compromiso exists in both places, and the CRM side is the
+ * one that explains why the task exists. A board-only row, or a CRM row with
+ * no cliente to land on, goes to the tarea detail.
+ */
+export function hrefFor(
+  item: { id: number; origen: string; clienteId: number | null },
+): string {
+  const esCrm = item.origen === "CRM" || item.origen === "Ambos";
+
+  if (esCrm && item.clienteId !== null) {
+    return `/crm/${item.clienteId}/compromisos`;
+  }
+
+  return `/kanban/${item.id}`;
+}
+
 export function fechaEnvioBogota(instant: Date): string {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: ZONA_HORARIA,
