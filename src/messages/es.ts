@@ -47,6 +47,16 @@ export const es = {
   session: {
     idleSignedOut: "Sesión cerrada por inactividad.",
   },
+  notificaciones: {
+    label: "Notificaciones",
+    vencida: "Vencida",
+    vencePronto: "Vence pronto",
+    sinFecha: "Sin fecha",
+    emptyState: "No tenés tareas vencidas ni por vencer.",
+    ayuda: "Tus tareas vencidas y las que vencen en los próximos tres días.",
+    verCompromiso: "Ver el compromiso del cliente",
+    verTarea: "Ver la tarea",
+  },
   home: {
     welcome: "Bienvenido a Muttu Hub.",
     nav: "Inicio",
