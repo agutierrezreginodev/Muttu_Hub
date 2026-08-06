@@ -13,8 +13,7 @@ import { BoardFilters } from "./board-filters";
 import type { BoardColumnData } from "./board-column";
 import { ScopeToggle } from "./scope-toggle";
 import { TareaFormDialog, type TareaFormOptions } from "./tarea-form-dialog";
-
-export const BOARD_PATH = "/kanban";
+import { BOARD_PATH, KanbanViewTabs } from "./view-tabs";
 
 export const metadata: Metadata = {
   title: `${es.kanban.title} · ${es.common.appName}`,
@@ -25,15 +24,15 @@ interface KanbanPageProps {
 }
 
 /**
- * Board view (slices 4b/5b/6; design part 2 §12, spec KB1/KV2). Columns come
+ * Board view (slices 4b/5b/6; design part 2 §12, spec KB1/KV1/KV2). Columns come
  * from `v_catalogo(tipo='columna_tablero')` (already active-only) and cards from
  * `v_tarea` filtered `origen in ('Kanban','Ambos')`, grouped server-side by
  * `groupTareasByColumna` and ordered within each column by `sortTareasForBoard`.
  *
- * Scope and filters come from the URL and are applied as QUERIES by
- * `loadBoardView`, so the board never ships rows it then hides. Every KV1 filter
- * is already honoured here by deep link; the form that composes those URLs lands
- * in the next slice, and the list view that shares this loader after it.
+ * Filters and scope come from the URL and are applied as QUERIES by
+ * `loadBoardView` — the same loader the list view uses, so KV1's "same rows, two
+ * presentations" holds by construction. Nothing here filters client-side, so the
+ * board never ships rows it then hides.
  */
 export default async function KanbanPage({ searchParams }: KanbanPageProps) {
   const params = await searchParams;
@@ -84,6 +83,7 @@ export default async function KanbanPage({ searchParams }: KanbanPageProps) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">{es.kanban.title}</h1>
         <div className="flex flex-wrap items-center gap-2">
+          <KanbanViewTabs current={BOARD_PATH} params={params} />
           <ScopeToggle
             scope={filters.scope}
             params={params}

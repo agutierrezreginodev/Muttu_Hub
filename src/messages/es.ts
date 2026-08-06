@@ -314,6 +314,13 @@ export const es = {
     columnas: {
       emptyState: "No hay tareas en esta columna.",
     },
+    lista: {
+      nav: "Lista",
+      tablero: "Tablero",
+      viewsLabel: "Vista del tablero",
+      columna: "Columna",
+      emptyState: "No hay tareas para mostrar.",
+    },
     filtros: {
       label: "Filtros",
       responsable: "Responsable",
