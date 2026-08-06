@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 export const BOARD_PATH = "/kanban";
 export const LISTA_PATH = "/kanban/lista";
+export const REPORTES_PATH = "/kanban/reportes";
 
 interface KanbanViewTabsProps {
   /** The path currently rendering, so the active tab is not guessed. */
@@ -26,6 +27,7 @@ export function KanbanViewTabs({ current, params }: KanbanViewTabsProps) {
   const views = [
     { path: BOARD_PATH, label: es.kanban.lista.tablero },
     { path: LISTA_PATH, label: es.kanban.lista.nav },
+    { path: REPORTES_PATH, label: es.kanban.reportes.nav },
   ];
 
   return (

@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { KanbanViewTabs } from "./view-tabs";
 
 describe("KanbanViewTabs (spec KV1 — two presentations of one dataset)", () => {
-  it("links to both views", () => {
+  it("links to every view", () => {
     render(<KanbanViewTabs current="/kanban" params={{}} />);
 
     expect(screen.getByRole("link", { name: "Tablero" })).toHaveAttribute(
@@ -14,6 +14,10 @@ describe("KanbanViewTabs (spec KV1 — two presentations of one dataset)", () =>
     expect(screen.getByRole("link", { name: "Lista" })).toHaveAttribute(
       "href",
       "/kanban/lista",
+    );
+    expect(screen.getByRole("link", { name: "Reportes" })).toHaveAttribute(
+      "href",
+      "/kanban/reportes",
     );
   });
 
@@ -34,6 +38,16 @@ describe("KanbanViewTabs (spec KV1 — two presentations of one dataset)", () =>
     expect(href).toContain("/kanban/lista?");
     expect(href).toContain("scope=mio");
     expect(href).toContain("prioridad=Alta");
+
+    // Reports are the same dataset counted, so they inherit the same scope and
+    // filters — a report that silently widened to the whole team would be a
+    // quiet privacy surprise, not just an inconsistency.
+    const reportesHref = screen
+      .getByRole("link", { name: "Reportes" })
+      .getAttribute("href");
+    expect(reportesHref).toContain("/kanban/reportes?");
+    expect(reportesHref).toContain("scope=mio");
+    expect(reportesHref).toContain("prioridad=Alta");
   });
 
   it("marks the current view for assistive tech", () => {
