@@ -1,111 +1,107 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 import { ADMIN_STORAGE_STATE_PATH } from "./env";
 
 /**
- * Slice 5b first pass (design §6/D9): create a card, move it into a terminal
- * column through BOTH move paths, and prove the estado sync is what the design
- * says it is.
+ * Slice 5b/7 (design §6/D9, spec KM1/KM2). The assertions read the BOARD, never
+ * the database: `estado` is not rendered on a card, but it is observable —
+ * moving into a terminal column and back is exactly what the sync rule governs.
  *
- * The assertions read the BOARD, never the database: `estado` is not rendered on
- * a card, but it is observable through `v_tarea.vencido` — the "Vencida" badge
- * disappears once `estado` becomes `cumplido`, because the view's own expression
- * excludes the two terminal states. That makes this a real end-to-end check of
- * the sync rule rather than a check that a card changed columns.
+ * Two rules this file learned from a CI failure that never reproduced locally:
  *
- * The four tests are ORDER-DEPENDENT on purpose: one card is created, moved,
- * scoped and finally deleted, so the suite leaves no fixture rows behind. That
- * is safe here and only here because `playwright.config.ts` pins
- * `workers: 1` + `fullyParallel: false`; a card per test would need its own
- * cleanup and would not exercise the reopen path at all.
+ * 1. **Every persistence assertion follows a `reload()`.** The board moves a
+ *    card OPTIMISTICALLY, so asserting right after the click only proves the
+ *    optimistic paint. Locally the round trip beat the assertion and it passed;
+ *    in CI the page closed with the server action still in flight, the move was
+ *    never persisted, and the failure surfaced in the NEXT test instead of this
+ *    one.
+ * 2. **Each test creates and deletes its own card.** An order-dependent chain
+ *    breaks under Playwright's CI retries: the module-level title is recomputed
+ *    on a retry, so the retried test hunts for a card that run never created —
+ *    which is what turned one real failure into three confusing ones.
  */
+
+async function crearTarea(page: Page, titulo: string) {
+  await page.goto("/kanban");
+  await page.getByRole("button", { name: "Nueva tarea" }).click();
+  // Scoped to the dialog: the filter form repeats these field labels.
+  await page.getByRole("dialog").getByLabel("Título").fill(titulo);
+  await page.getByRole("button", { name: "Guardar" }).click();
+
+  await expect(
+    page.locator('[data-testid^="tarea-card-"]', { hasText: titulo }),
+  ).toBeVisible();
+}
+
+async function borrarTarea(page: Page, titulo: string) {
+  await page.goto("/kanban");
+  const drag = page.locator('[data-testid^="tarea-drag-"]', {
+    hasText: titulo,
+  });
+  await drag.getByRole("button", { name: "Eliminar" }).click();
+  await page.getByRole("button", { name: "Confirmar" }).click();
+
+  await page.reload();
+  await expect(
+    page.locator('[data-testid^="tarea-card-"]', { hasText: titulo }),
+  ).toHaveCount(0);
+}
+
+function cardEnColumna(page: Page, columna: string, titulo: string) {
+  return page
+    .getByRole("region", { name: columna })
+    .locator('[data-testid^="tarea-card-"]', { hasText: titulo });
+}
+
+async function moverA(page: Page, titulo: string, destino: string) {
+  const drag = page.locator('[data-testid^="tarea-drag-"]', {
+    hasText: titulo,
+  });
+  await drag.getByRole("button", { name: "Mover a…" }).click();
+  await page.getByRole("menuitem", { name: destino }).click();
+  // Read the move back from the server rather than trusting the optimistic UI.
+  await page.reload();
+}
+
 test.describe("kanban flow", () => {
   test.use({ storageState: ADMIN_STORAGE_STATE_PATH });
 
-  const titulo = `E2E tarea ${Date.now()}`;
-
-  test("creates a card, then completes it through the Mover a… menu", async ({
+  test("completing a card persists it, and reopening moves it back out of the terminal column", async ({
     page,
   }) => {
-    await page.goto("/kanban");
-
-    await page.getByRole("button", { name: "Nueva tarea" }).click();
-    // Deliberately fills ONLY the título: PRD §5.2 makes it the single required
-    // field, and the form defaults the responsable to the current user (KT1).
-    await page.getByLabel("Título").fill(titulo);
-    await page.getByRole("button", { name: "Guardar" }).click();
-
-    const card = page.locator('[data-testid^="tarea-card-"]', {
-      hasText: titulo,
-    });
-    await expect(card).toBeVisible();
+    const titulo = `E2E mover ${Date.now()}`;
+    await crearTarea(page, titulo);
 
     // A brand-new card has a null `columna` and folds into the first column
-    // (D3), so the first column is a genuine destination in the menu.
-    const drag = page.locator('[data-testid^="tarea-drag-"]', {
-      hasText: titulo,
-    });
-    await drag.getByRole("button", { name: "Mover a…" }).click();
-    await page.getByRole("menuitem", { name: "Completada" }).click();
+    // (D3), so every column is a genuine destination in the menu.
+    await moverA(page, titulo, "Completada");
+    await expect(cardEnColumna(page, "Completada", titulo)).toBeVisible();
 
-    await expect(
-      page
-        .getByRole("region", { name: "Completada" })
-        .locator('[data-testid^="tarea-card-"]', { hasText: titulo }),
-    ).toBeVisible();
-  });
-
-  test("reopening a completed card moves it back out of the terminal column", async ({
-    page,
-  }) => {
-    await page.goto("/kanban");
-
-    const drag = page.locator('[data-testid^="tarea-drag-"]', {
-      hasText: titulo,
-    });
-    await drag.getByRole("button", { name: "Mover a…" }).click();
-    await page.getByRole("menuitem", { name: "Por hacer" }).click();
-
+    await moverA(page, titulo, "Por hacer");
     // Design §6: leaving a terminal column reopens `estado` to `en_curso`. The
     // card must be OUT of "Completada", not merely also present in "Por hacer".
-    await expect(
-      page
-        .getByRole("region", { name: "Por hacer" })
-        .locator('[data-testid^="tarea-card-"]', { hasText: titulo }),
-    ).toBeVisible();
-    await expect(
-      page
-        .getByRole("region", { name: "Completada" })
-        .locator('[data-testid^="tarea-card-"]', { hasText: titulo }),
-    ).toHaveCount(0);
+    await expect(cardEnColumna(page, "Por hacer", titulo)).toBeVisible();
+    await expect(cardEnColumna(page, "Completada", titulo)).toHaveCount(0);
+
+    await borrarTarea(page, titulo);
   });
 
   test("Mi tablero narrows the board by query, not by hiding rows", async ({
     page,
   }) => {
-    await page.goto("/kanban");
+    const titulo = `E2E scope ${Date.now()}`;
+    await crearTarea(page, titulo);
+
     await page.getByRole("link", { name: "Mi tablero" }).click();
 
     await expect(page).toHaveURL(/scope=mio/);
     // The card the admin just created is theirs, so it survives the narrow
-    // scope — this asserts the filter is applied and correct, not merely that
+    // scope — this asserts the filter is applied AND correct, not merely that
     // the page still renders.
     await expect(
       page.locator('[data-testid^="tarea-card-"]', { hasText: titulo }),
     ).toBeVisible();
-  });
 
-  test("deleting the card removes it from the board", async ({ page }) => {
-    await page.goto("/kanban");
-
-    const drag = page.locator('[data-testid^="tarea-drag-"]', {
-      hasText: titulo,
-    });
-    await drag.getByRole("button", { name: "Eliminar" }).click();
-    await page.getByRole("button", { name: "Confirmar" }).click();
-
-    await expect(
-      page.locator('[data-testid^="tarea-card-"]', { hasText: titulo }),
-    ).toHaveCount(0);
+    await borrarTarea(page, titulo);
   });
 });
