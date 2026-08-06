@@ -3,15 +3,23 @@ import type { Metadata } from "next";
 import { es } from "@/messages/es";
 import {
   getUsuarioDirectory,
+  listUsuarioOptions,
   resolveUsuarioLabel,
 } from "@/lib/admin/directory";
-import { listBoardTareas, listColumnas } from "@/lib/kanban/queries";
+import { getSessionContext } from "@/lib/session/get-session-context";
+import {
+  listBoardTareas,
+  listColumnas,
+  listEtiquetaOptions,
+  listPrioridadOptions,
+} from "@/lib/kanban/queries";
 import {
   groupTareasByColumna,
   sortTareasForBoard,
 } from "@/lib/kanban/columnas";
 import { KanbanBoard } from "./board";
 import type { BoardColumnData } from "./board-column";
+import { TareaFormDialog, type TareaFormOptions } from "./tarea-form-dialog";
 
 export const metadata: Metadata = {
   title: `${es.kanban.title} · ${es.common.appName}`,
@@ -37,23 +45,50 @@ interface KanbanPageProps {
 export default async function KanbanPage({ searchParams }: KanbanPageProps) {
   await searchParams;
 
-  const [tareas, columnas, directory] = await Promise.all([
+  const [
+    tareas,
+    columnas,
+    directory,
+    usuarioOptions,
+    prioridadOptions,
+    etiquetaOptions,
+    session,
+  ] = await Promise.all([
     listBoardTareas(),
     listColumnas(),
     getUsuarioDirectory(),
+    listUsuarioOptions(),
+    listPrioridadOptions(),
+    listEtiquetaOptions(),
+    getSessionContext(),
   ]);
 
   const cards = tareas.map((tarea) => ({
     id: tarea.id,
     titulo: tarea.titulo,
+    descripcion: tarea.descripcion,
     columna: tarea.columna,
+    responsableId: tarea.responsableId,
     responsableLabel: resolveUsuarioLabel(directory, tarea.responsableId),
+    clienteId: tarea.clienteId,
     fechaLimite: tarea.fechaLimite,
     prioridad: tarea.prioridad,
     etiquetas: tarea.etiquetas,
     vencido: tarea.vencido,
     createdAt: tarea.createdAt,
   }));
+
+  /**
+   * Spec KT1: create defaults the responsable to the current user rather than
+   * asking. `getSessionContext()` is `React.cache()`d and the layout already
+   * called it, so this is the same round trip, not a second one.
+   */
+  const formOptions: TareaFormOptions = {
+    usuarioOptions,
+    prioridadOptions,
+    etiquetaOptions,
+    defaultResponsableId: session?.userId ?? "",
+  };
 
   const grouped = groupTareasByColumna(cards, columnas);
 
@@ -65,8 +100,11 @@ export default async function KanbanPage({ searchParams }: KanbanPageProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">{es.kanban.title}</h1>
-      <KanbanBoard columns={columns} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold">{es.kanban.title}</h1>
+        <TareaFormDialog mode="create" {...formOptions} />
+      </div>
+      <KanbanBoard columns={columns} formOptions={formOptions} />
     </div>
   );
 }

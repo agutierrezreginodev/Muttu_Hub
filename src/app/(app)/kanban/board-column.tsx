@@ -1,5 +1,6 @@
 import { es } from "@/messages/es";
 import { TareaCard, type KanbanCardData } from "./tarea-card";
+import type { TareaFormOptions } from "./tarea-form-dialog";
 
 export interface BoardColumnData {
   codigo: string;
@@ -9,6 +10,8 @@ export interface BoardColumnData {
 
 interface BoardColumnProps {
   column: BoardColumnData;
+  /** Threaded straight through to each card's edit dialog (slice 5a). */
+  formOptions: TareaFormOptions;
 }
 
 /**
@@ -19,7 +22,7 @@ interface BoardColumnProps {
  * (`onDragOver`/`onDrop`) is deferred to slice 5b, once `moveTareaAction`
  * exists to call.
  */
-export function BoardColumn({ column }: BoardColumnProps) {
+export function BoardColumn({ column, formOptions }: BoardColumnProps) {
   return (
     <section
       aria-label={column.etiqueta}
@@ -38,7 +41,7 @@ export function BoardColumn({ column }: BoardColumnProps) {
       ) : (
         <div className="flex flex-col gap-2">
           {column.tareas.map((tarea) => (
-            <TareaCard key={tarea.id} tarea={tarea} />
+            <TareaCard key={tarea.id} tarea={tarea} formOptions={formOptions} />
           ))}
         </div>
       )}

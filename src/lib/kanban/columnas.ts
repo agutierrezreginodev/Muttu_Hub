@@ -29,6 +29,18 @@ export const ETIQUETA_TIPO = "etiqueta_tarea" as const;
 export const PRIORIDAD_TIPO = "prioridad" as const;
 
 /**
+ * One offered option of a catalog-backed picker (prioridad, etiquetas). Lives in
+ * THIS pure module, not in `queries.ts` which produces it: `queries.ts` imports
+ * `createClient` (server-only, `next/headers`), and the tarea form is a
+ * `"use client"` component — the same split `catalogo-options.ts` and
+ * `directory-options.ts` document, for the same bug.
+ */
+export interface CatalogoPickerOption {
+  codigo: string;
+  etiqueta: string;
+}
+
+/**
  * Reserved terminal column codes -> the `tarea.estado` they own (design D1,
  * D5). The ONLY place this mapping exists. `codigo` is absent from
  * `catalogo`'s UPDATE grant (`crm_catalogos.sql:82`), so an admin renaming a
