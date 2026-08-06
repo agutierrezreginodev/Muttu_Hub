@@ -18,6 +18,8 @@ export interface KanbanCardData {
   prioridad: string | null;
   etiquetas: string[];
   vencido: boolean;
+  /** Sort input only (design part 2 §12's third tie-break), never rendered. */
+  createdAt: string;
 }
 
 interface TareaCardProps {

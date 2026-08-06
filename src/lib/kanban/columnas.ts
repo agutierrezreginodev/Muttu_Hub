@@ -62,6 +62,34 @@ export function isTerminalColumna(
   return codigo !== null && codigo in TERMINAL_COLUMNA_ESTADO;
 }
 
+/**
+ * D5's `estado` <-> `columna` sync rule, as a pure decision (design part 1 §6,
+ * 9-row truth table). Returns a PATCH, and an EMPTY patch is the meaningful
+ * answer for every admin-created column: its `codigo` is by definition absent
+ * from `TERMINAL_COLUMNA_ESTADO`, so it owns no estado and must leave the
+ * lifecycle state alone.
+ *
+ * The destination is checked BEFORE the source on purpose: that ordering is
+ * what makes a terminal-to-terminal move (`cumplido` -> `cancelado`) adopt the
+ * destination instead of reopening to `en_curso`.
+ *
+ * Never returns `columna`. The action spreads this over its own
+ * `{ columna: destino }`, so a `columna` key here would silently override the
+ * real destination.
+ */
+export function resolveEstadoOnMove(
+  columnaOrigen: string | null,
+  columnaDestino: string,
+): { estado?: string } {
+  if (isTerminalColumna(columnaDestino)) {
+    return { estado: TERMINAL_COLUMNA_ESTADO[columnaDestino] };
+  }
+  if (isTerminalColumna(columnaOrigen)) {
+    return { estado: REOPEN_ESTADO };
+  }
+  return {};
+}
+
 interface ColumnaActiva {
   codigo: string;
 }

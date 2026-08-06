@@ -1,9 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { BoardColumn, type BoardColumnData } from "./board-column";
+import {
+  BoardColumn,
+  type BoardColumnData,
+  type BoardMoveApi,
+} from "./board-column";
 import type { KanbanCardData } from "./tarea-card";
 import type { TareaFormOptions } from "./tarea-form-dialog";
+
+const MOVE: BoardMoveApi = {
+  columnas: [
+    { codigo: "por_hacer", etiqueta: "Por hacer" },
+    { codigo: "cumplido", etiqueta: "Completada" },
+  ],
+  onCardDragStart: () => {},
+  onColumnDrop: () => {},
+  onMoveSelect: () => {},
+};
 
 const FORM_OPTIONS: TareaFormOptions = {
   usuarioOptions: [],
@@ -24,6 +38,7 @@ function makeCard(overrides: Partial<KanbanCardData> = {}): KanbanCardData {
     prioridad: null,
     etiquetas: [],
     vencido: false,
+    createdAt: "2026-08-01T00:00:00Z",
     ...overrides,
   };
 }
@@ -48,6 +63,7 @@ describe("BoardColumn (slice 4b, design part 2 §12)", () => {
       <BoardColumn
         column={makeColumn({ etiqueta: "En curso" })}
         formOptions={FORM_OPTIONS}
+        move={MOVE}
       />,
     );
     expect(screen.getByText("En curso")).toBeInTheDocument();
@@ -63,6 +79,7 @@ describe("BoardColumn (slice 4b, design part 2 §12)", () => {
           ],
         })}
         formOptions={FORM_OPTIONS}
+        move={MOVE}
       />,
     );
     expect(screen.getByText("2")).toBeInTheDocument();
@@ -73,6 +90,7 @@ describe("BoardColumn (slice 4b, design part 2 §12)", () => {
       <BoardColumn
         column={makeColumn({ tareas: [] })}
         formOptions={FORM_OPTIONS}
+        move={MOVE}
       />,
     );
     expect(
@@ -92,6 +110,7 @@ describe("BoardColumn (slice 4b, design part 2 §12)", () => {
           ],
         })}
         formOptions={FORM_OPTIONS}
+        move={MOVE}
       />,
     );
     expect(screen.getByText("Preparar propuesta")).toBeInTheDocument();

@@ -78,6 +78,21 @@ export const tareaUpdateSchema = z.object(tareaFields);
 export type TareaUpdateInput = z.infer<typeof tareaUpdateSchema>;
 
 /**
+ * Board move (design §6). Only these two fields: the destination column and the
+ * row. `estado` is NEVER client-supplied — `moveTareaAction` derives it from
+ * `resolveEstadoOnMove`, so a caller cannot name the lifecycle state it wants
+ * and bypass D5's sync rule.
+ */
+export const moveTareaSchema = z.object({
+  tareaId: z.number().int().positive(),
+  columnaDestino: z
+    .string()
+    .trim()
+    .min(1, { message: es.common.requiredField }),
+});
+export type MoveTareaInput = z.infer<typeof moveTareaSchema>;
+
+/**
  * Comment form (spec KM1's non-blank CHECK). Deliberately has ONLY `texto`
  * — mirrors `src/lib/crm/schemas.ts`'s `bitacoraSchema` exactly: `autor_id`
  * is never client-supplied (forced server-side from the session, matching

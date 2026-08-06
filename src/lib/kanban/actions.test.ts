@@ -6,6 +6,7 @@ import { es } from "@/messages/es";
 import {
   createTareaAction,
   deleteTareaAction,
+  moveTareaAction,
   updateTareaAction,
 } from "@/lib/kanban/actions";
 
@@ -516,5 +517,267 @@ describe("deleteTareaAction (spec KT3)", () => {
     await deleteTareaAction(7);
 
     expect(revalidatePathMock).toHaveBeenCalledWith("/kanban");
+  });
+});
+
+interface MoveRow {
+  columna: string | null;
+  estado: string;
+  origen: string;
+  responsable_id: string | null;
+}
+
+/**
+ * Three tables, three chain shapes: `v_tarea` reads the current row,
+ * `v_catalogo` answers "is this destination still active" (correction C5), and
+ * `tarea` takes the patch. Modelled per-table rather than with one generic
+ * chain, so a call landing on the WRONG table shows up as an undefined method
+ * instead of quietly returning a plausible result.
+ */
+function buildMoveMock(options: {
+  hasPermission?: boolean;
+  row?: MoveRow | null;
+  columnaActiva?: boolean;
+  updateError?: unknown;
+}) {
+  const update = vi.fn((_payload: Record<string, unknown>) => ({
+    eq: (_column: string, _value: unknown) =>
+      Promise.resolve({ error: options.updateError ?? null }),
+  }));
+
+  const rpc = vi.fn((name: string) => {
+    if (name === "has_permission") {
+      return Promise.resolve({
+        data: options.hasPermission ?? true,
+        error: null,
+      });
+    }
+    return Promise.resolve({ data: null, error: null });
+  });
+
+  const tables: string[] = [];
+  const from = vi.fn((table: string) => {
+    tables.push(table);
+    if (table === "v_tarea") {
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        maybeSingle: () =>
+          Promise.resolve({
+            data: options.row === undefined ? DEFAULT_ROW : options.row,
+            error: null,
+          }),
+      };
+      return chain;
+    }
+    if (table === "v_catalogo") {
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        maybeSingle: () =>
+          Promise.resolve({
+            data:
+              (options.columnaActiva ?? true) ? { codigo: "cumplido" } : null,
+            error: null,
+          }),
+      };
+      return chain;
+    }
+    return { update };
+  });
+
+  return { rpc, from, update, tables };
+}
+
+const DEFAULT_ROW: MoveRow = {
+  columna: "en_revision",
+  estado: "en_curso",
+  origen: "Kanban",
+  responsable_id: "user-kanban-1",
+};
+
+describe("moveTareaAction (design §6 — the single estado/columna sync point)", () => {
+  it("refuses without kanban.editar and never reads the row", async () => {
+    const supabase = buildMoveMock({ hasPermission: false });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await moveTareaAction({
+      tareaId: 7,
+      columnaDestino: "cumplido",
+    });
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("rejects a move into a DEACTIVATED column (correction C5)", async () => {
+    const supabase = buildMoveMock({ columnaActiva: false });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await moveTareaAction({
+      tareaId: 7,
+      columnaDestino: "cumplido",
+    });
+
+    // The composite FK proves the code EXISTS in `catalogo`; `activo` is not
+    // part of the PK, so Postgres accepts a write into an already-deactivated
+    // column. This app-layer guard is the only thing that does not.
+    expect(result.error).toBe(es.kanban.errors.columnaInactiva);
+    expect(supabase.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a terminal move on a responsable-less row instead of raising 23514 (correction C4)", async () => {
+    const supabase = buildMoveMock({
+      row: {
+        columna: "por_hacer",
+        estado: "borrador",
+        origen: "Ambos",
+        responsable_id: null,
+      },
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await moveTareaAction({
+      tareaId: 7,
+      columnaDestino: "cumplido",
+    });
+
+    // Reachable in production: a CRM compromiso created as estado='borrador'
+    // with no responsable, promoted to origen='Ambos', then dropped into
+    // "Completada" — `borrador_sin_responsable` (domain.sql:37) would raise a
+    // raw 23514 surfaced as a meaningless generic error.
+    expect(result.error).toBe(es.kanban.errors.responsableRequeridoParaMover);
+    expect(supabase.update).not.toHaveBeenCalled();
+  });
+
+  it("allows a responsable-less row to move between non-terminal columns", async () => {
+    const supabase = buildMoveMock({
+      row: {
+        columna: "por_hacer",
+        estado: "borrador",
+        origen: "Ambos",
+        responsable_id: null,
+      },
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await moveTareaAction({
+      tareaId: 7,
+      columnaDestino: "en_revision",
+    });
+
+    // The C4 guard must key on "this patch would SET an estado", not on "the
+    // row has no responsable" — otherwise a promoted borrador could never be
+    // moved on the board at all.
+    expect(result.success).toBe(true);
+    expect(supabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({ columna: "en_revision" }),
+    );
+    const payload = supabase.update.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(payload).not.toHaveProperty("estado");
+  });
+
+  it("writes columna AND the synced estado entering a terminal column", async () => {
+    const supabase = buildMoveMock({});
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await moveTareaAction({
+      tareaId: 7,
+      columnaDestino: "cumplido",
+    });
+
+    expect(result.success).toBe(true);
+    expect(supabase.update).toHaveBeenCalledWith({
+      columna: "cumplido",
+      estado: "cumplido",
+    });
+  });
+
+  it("writes only columna when the destination owns no estado", async () => {
+    const supabase = buildMoveMock({
+      row: {
+        columna: "por_hacer",
+        estado: "pendiente",
+        origen: "Kanban",
+        responsable_id: "user-kanban-1",
+      },
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await moveTareaAction({ tareaId: 7, columnaDestino: "en_revision" });
+
+    expect(supabase.update).toHaveBeenCalledWith({ columna: "en_revision" });
+  });
+
+  it("never writes null back into columna, so D3's null state decays", async () => {
+    const supabase = buildMoveMock({
+      row: {
+        columna: null,
+        estado: "pendiente",
+        origen: "Kanban",
+        responsable_id: "user-kanban-1",
+      },
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await moveTareaAction({ tareaId: 7, columnaDestino: "en_revision" });
+
+    const payload = supabase.update.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(payload.columna).toBe("en_revision");
+  });
+
+  it("returns a generic error for a row RLS hid, without confirming it exists", async () => {
+    const supabase = buildMoveMock({ row: null });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await moveTareaAction({
+      tareaId: 7,
+      columnaDestino: "cumplido",
+    });
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(supabase.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blank columnaDestino before touching the database", async () => {
+    const supabase = buildMoveMock({});
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await moveTareaAction({ tareaId: 7, columnaDestino: "  " });
+
+    expect(result.error).toBe(es.common.requiredField);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a write failure instead of reporting success", async () => {
+    const supabase = buildMoveMock({ updateError: { message: "denied" } });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await moveTareaAction({
+      tareaId: 7,
+      columnaDestino: "cumplido",
+    });
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the layout scope too, or the bell keeps a completed task", async () => {
+    const supabase = buildMoveMock({});
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await moveTareaAction({ tareaId: 7, columnaDestino: "cumplido" });
+
+    // The bell count lives in (app)/layout.tsx (slice 10). Without the layout
+    // scope a completed task keeps showing there until the next full
+    // navigation — design §6 step 7 calls for both revalidations.
+    expect(revalidatePathMock).toHaveBeenCalledWith("/kanban");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/kanban", "layout");
   });
 });
