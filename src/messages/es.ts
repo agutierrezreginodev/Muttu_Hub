@@ -247,6 +247,15 @@ export const es = {
       estado: "Estado",
       noEntries: "Todavía no hay compromisos para este cliente.",
       createSuccess: "Compromiso creado.",
+      promoteColumn: "En el tablero",
+      promoteAdd: "Poner en el tablero",
+      promoteRemove: "Quitar del tablero",
+      promoteAddSuccess: "El compromiso ahora también está en el tablero.",
+      promoteRemoveSuccess: "El compromiso salió del tablero.",
+      promoteAyuda:
+        "Ponerlo en el tablero no lo saca de acá: el compromiso sigue en esta pestaña y además aparece como tarjeta en Kanban.",
+      promoteOrigenInvalido:
+        "Esta tarea nació en el tablero, así que no se promueve desde el CRM.",
     },
     tareas: {
       titulo: "Título",
@@ -371,6 +380,28 @@ export const es = {
       deleteConfirmDescription:
         "La tarea deja de verse en el tablero. No se borra del historial.",
       deleteSuccess: "Tarea eliminada.",
+    },
+    reportes: {
+      nav: "Reportes",
+      title: "Reportes del tablero",
+      total: "Tareas en vista",
+      vencidas: "Vencidas",
+      porResponsable: "Por responsable",
+      porEstado: "Por estado",
+      porEtiqueta: "Por etiqueta",
+      porPrioridad: "Por prioridad",
+      sinResponsable: "Sin responsable",
+      sinPrioridad: "Sin prioridad",
+      emptyState: "No hay tareas para reportar.",
+      etiquetaAyuda:
+        "Una tarea con varias etiquetas cuenta en cada una, y una tarea sin etiquetas no cuenta en ninguna. Por eso este total puede no coincidir con el de arriba.",
+      estados: {
+        borrador: "Borrador",
+        pendiente: "Pendiente",
+        en_curso: "En curso",
+        cumplido: "Cumplida",
+        cancelado: "Cancelada",
+      },
     },
     errors: {
       etiquetaInactiva: "Esa etiqueta ya no está activa.",
