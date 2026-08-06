@@ -1,74 +1,51 @@
 import type { Metadata } from "next";
 
 import { es } from "@/messages/es";
-import {
-  getUsuarioDirectory,
-  listUsuarioOptions,
-  resolveUsuarioLabel,
-} from "@/lib/admin/directory";
-import { getSessionContext } from "@/lib/session/get-session-context";
-import {
-  listBoardTareas,
-  listColumnas,
-  listEtiquetaOptions,
-  listPrioridadOptions,
-} from "@/lib/kanban/queries";
+import { resolveUsuarioLabel } from "@/lib/admin/directory";
+import { loadBoardView } from "@/lib/kanban/board-data";
 import {
   groupTareasByColumna,
   sortTareasForBoard,
 } from "@/lib/kanban/columnas";
-import { BOARD_SCOPES, SCOPE_PARAM, parseScope } from "@/lib/kanban/filtros";
+import type { SearchParamsRecord } from "@/lib/kanban/filtros";
 import { KanbanBoard } from "./board";
 import type { BoardColumnData } from "./board-column";
 import { ScopeToggle } from "./scope-toggle";
 import { TareaFormDialog, type TareaFormOptions } from "./tarea-form-dialog";
+
+export const BOARD_PATH = "/kanban";
 
 export const metadata: Metadata = {
   title: `${es.kanban.title} · ${es.common.appName}`,
 };
 
 interface KanbanPageProps {
-  searchParams: Promise<Record<string, string | undefined>>;
+  searchParams: Promise<SearchParamsRecord>;
 }
 
 /**
- * Read-only board render (slice 4b; design part 2 §12, spec KB1). Columns
- * come from `v_catalogo(tipo='columna_tablero')` (already active-only) and
- * cards from `v_tarea` filtered `origen in ('Kanban','Ambos')`
- * (`listBoardTareas`, `listColumnas` — `src/lib/kanban/queries.ts`), grouped
- * server-side via `groupTareasByColumna` (slice 4a) and ordered within each
- * column via `sortTareasForBoard` (this slice).
+ * Board view (slices 4b/5b/6; design part 2 §12, spec KB1/KV2). Columns come
+ * from `v_catalogo(tipo='columna_tablero')` (already active-only) and cards from
+ * `v_tarea` filtered `origen in ('Kanban','Ambos')`, grouped server-side by
+ * `groupTareasByColumna` and ordered within each column by `sortTareasForBoard`.
  *
- * The scope comes from the URL (design D10, spec KV2) and is applied as a
- * QUERY: "Mi tablero" narrows `listBoardTareas` by `responsable_id`, so the
- * board never ships rows it then hides. The KV1 field filters land in slice 6.
+ * Scope and filters come from the URL and are applied as QUERIES by
+ * `loadBoardView`, so the board never ships rows it then hides. Every KV1 filter
+ * is already honoured here by deep link; the form that composes those URLs lands
+ * in the next slice, and the list view that shares this loader after it.
  */
 export default async function KanbanPage({ searchParams }: KanbanPageProps) {
   const params = await searchParams;
-  const scope = parseScope(params[SCOPE_PARAM]);
-
-  // Awaited before the board query because the "mine" scope needs the caller's
-  // own id. `React.cache()` means the layout's earlier call is reused — this is
-  // the same round trip, not an extra one.
-  const session = await getSessionContext();
-  const responsableId =
-    scope === BOARD_SCOPES.mio ? (session?.userId ?? undefined) : undefined;
-
-  const [
+  const {
+    filters,
     tareas,
     columnas,
     directory,
     usuarioOptions,
     prioridadOptions,
     etiquetaOptions,
-  ] = await Promise.all([
-    listBoardTareas({ responsableId }),
-    listColumnas(),
-    getUsuarioDirectory(),
-    listUsuarioOptions(),
-    listPrioridadOptions(),
-    listEtiquetaOptions(),
-  ]);
+    defaultResponsableId,
+  } = await loadBoardView(params);
 
   const cards = tareas.map((tarea) => ({
     id: tarea.id,
@@ -85,16 +62,11 @@ export default async function KanbanPage({ searchParams }: KanbanPageProps) {
     createdAt: tarea.createdAt,
   }));
 
-  /**
-   * Spec KT1: create defaults the responsable to the current user rather than
-   * asking. `getSessionContext()` is `React.cache()`d and the layout already
-   * called it, so this is the same round trip, not a second one.
-   */
   const formOptions: TareaFormOptions = {
     usuarioOptions,
     prioridadOptions,
     etiquetaOptions,
-    defaultResponsableId: session?.userId ?? "",
+    defaultResponsableId,
   };
 
   const grouped = groupTareasByColumna(cards, columnas);
@@ -110,7 +82,11 @@ export default async function KanbanPage({ searchParams }: KanbanPageProps) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">{es.kanban.title}</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <ScopeToggle scope={scope} params={params} />
+          <ScopeToggle
+            scope={filters.scope}
+            params={params}
+            basePath={BOARD_PATH}
+          />
           <TareaFormDialog mode="create" {...formOptions} />
         </div>
       </div>
