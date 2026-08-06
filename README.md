@@ -2,6 +2,10 @@
 
 Internal operations platform. Next.js 15 (App Router) + TypeScript (strict) + Tailwind CSS v4 + shadcn/ui + Supabase (Auth + Postgres). Postgres RLS is the only security boundary.
 
+**Picking up the work?** [`PROJECT_STATUS.md`](PROJECT_STATUS.md) holds the open
+pull requests, what is left to build, the environment gotchas that cost time
+once already, and the conventions to follow before opening a PR.
+
 ## Prerequisites
 
 - Node.js 24+
