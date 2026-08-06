@@ -7,6 +7,10 @@ migration has a pgTAP file authored and failing RED before the view exists. Slic
 stacked PRs, each ≤ ~400 changed lines. **Kanban-independent slices (PR-1…PR-3) ship first;
 Kanban-dependent slices (PR-4, and the Kanban part of PR-5) are marked BLOCKED.**
 
+**Status: every task 1.1–5.8 is done and merged to `main`.** The Kanban blocker that shaped the
+ordering below is closed — the `tarea` contract was confirmed, PR-4 shipped, and task 5.7 shipped
+with it. The BLOCKED wording further down is kept as the historical plan, not current status.
+
 Legend: `[ ]` todo · RED = write failing test first · GREEN = make it pass.
 
 ---
@@ -104,28 +108,33 @@ Legend: `[ ]` todo · RED = write failing test first · GREEN = make it pass.
       `DASHBOARD_TABS`; Tareas copy in `es.ts`.
 - [x] 4.7 RED→GREEN E2E `dashboard-tareas.spec.ts`.
 
-## PR-5 — Mi Resumen face — **PARTIAL: independent slice ships; Kanban slice BLOCKED**
+## PR-5 — Mi Resumen face — **COMPLETE, including the once-blocked Kanban slice**
 
-> Independent slice (my-clients + CRM/Ambos compromisos) may ship now. The full-origen "my
-> tareas" counts that include `origen = Kanban` are BLOCKED on the same Kanban confirmation as
-> PR-4.
+> The Kanban blocker is closed, not deferred: the `tarea` contract was re-confirmed, so
+> `v_dashboard_mi_resumen_tareas` rolls up by `estado` AND `origen` over the caller's full
+> self-scoped rowset, and `sumMisTareasAbiertas`/`sumMisTareasVencidas`/`sumMisTareasVencenPronto`
+> never filter by `origen` (task 5.7). `sumMisCompromisos` keeps the CRM/Ambos-only headline.
+>
+> Delivered across `9960f45` (views, pgTAP, query helpers) and `6c97192` + `cf62e90` (face, route,
+> tab, copy, E2E — PR #29). Checked off here in a later pass: the boxes lagged the merged code.
 
-- [ ] 5.1 RED: `supabase/tests/dashboard_mi_resumen_views.sql` — `security_invoker` flags,
+- [x] 5.1 RED: `supabase/tests/dashboard_mi_resumen_views.sql` — `security_invoker` flags,
       SELECT-only grants, `auth.uid()` self-scoping (user A excludes user B's tareas/clientes),
       `mis_clientes` value, `vencido`/`vencen_pronto` filters, correct values on fixtures. (Fails RED.)
-- [ ] 5.2 GREEN: migration `dashboard_mi_resumen_views` — `v_dashboard_mi_resumen_tareas`,
+- [x] 5.2 GREEN: migration `dashboard_mi_resumen_views` — `v_dashboard_mi_resumen_tareas`,
       `v_dashboard_mis_clientes` (design §4.4). pgTAP GREEN.
-- [ ] 5.3 RED: unit tests for Mi Resumen query helpers — **independent slice** (my-clients,
+      (`supabase/migrations/20260803190000_dashboard_mi_resumen_views.sql`.)
+- [x] 5.3 RED: unit tests for Mi Resumen query helpers — **independent slice** (my-clients,
       CRM/Ambos compromiso counts, agenda ordered by `fecha_limite`).
-- [ ] 5.4 GREEN: Mi Resumen query helpers (independent slice) + agenda list query.
-- [ ] 5.5 RED: RTL tests for the Mi Resumen presentational component — independent tiles
+- [x] 5.4 GREEN: Mi Resumen query helpers (independent slice) + agenda list query.
+      (`src/lib/dashboard/queries.ts`.)
+- [x] 5.5 RED: RTL tests for the Mi Resumen presentational component — independent tiles
       (mis clientes, mis compromisos), by-estado bar, agenda list, empty states.
-- [ ] 5.6 GREEN: Mi Resumen `page.tsx` + presentational component (independent slice); append
+- [x] 5.6 GREEN: Mi Resumen `page.tsx` + presentational component (independent slice); append
       `Mi Resumen` to `DASHBOARD_TABS`; Mi Resumen copy in `es.ts`.
-- [ ] 5.7 **BLOCKED (Kanban):** extend Mi Resumen with the full-origen "my tareas" counts
-      (open/overdue/due-soon including `origen = Kanban`) once the Kanban contract is confirmed —
-      RED tests then GREEN.
-- [ ] 5.8 RED→GREEN E2E `dashboard-mi-resumen.spec.ts` (independent slice; extend after 5.7).
+- [x] 5.7 Mi Resumen carries the full-origen "my tareas" counts (open/overdue/due-soon including
+      `origen = Kanban`) — the rollup view exposes `origen` and the sum helpers never filter on it.
+- [x] 5.8 RED→GREEN E2E `dashboard-mi-resumen.spec.ts`.
 
 ---
 
