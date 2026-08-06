@@ -105,3 +105,48 @@ test.describe("kanban flow", () => {
     await borrarTarea(page, titulo);
   });
 });
+
+/**
+ * Slice 7 (spec KM1/KM2): the detail route and its comment thread. Also the
+ * bell's deep-link target, so an id the caller cannot see must 404 rather than
+ * confirm the row exists.
+ */
+test.describe("kanban tarea detail", () => {
+  test.use({ storageState: ADMIN_STORAGE_STATE_PATH });
+
+  test("comments on a card and shows no way to edit or delete the comment", async ({
+    page,
+  }) => {
+    const titulo = `E2E detalle ${Date.now()}`;
+    await crearTarea(page, titulo);
+
+    await page.getByRole("link", { name: "Lista" }).click();
+    await page.getByRole("link", { name: titulo }).click();
+
+    await expect(page).toHaveURL(/\/kanban\/\d+$/);
+    await expect(page.getByText("Todavía no hay comentarios.")).toBeVisible();
+
+    await page.getByLabel("Nuevo comentario").fill("Comentario de prueba E2E.");
+    await page.getByRole("button", { name: "Comentar" }).click();
+
+    const feed = page.getByRole("list", { name: "Comentarios" });
+    await expect(feed.getByText("Comentario de prueba E2E.")).toBeVisible();
+    await page.reload();
+    // Read back from the server: an append that only ever existed in the client
+    // would be silent data loss, and this thread has no edit path to recover
+    // through.
+    await expect(feed.getByText("Comentario de prueba E2E.")).toBeVisible();
+    // KM2 is enforced by the absence of an UPDATE/DELETE grant, so the UI must
+    // not offer a control that could only ever fail.
+    await expect(feed.getByRole("button")).toHaveCount(0);
+
+    await borrarTarea(page, titulo);
+  });
+
+  test("a tarea id that does not exist is a 404, not a permission message", async ({
+    page,
+  }) => {
+    const response = await page.goto("/kanban/99999999");
+    expect(response?.status()).toBe(404);
+  });
+});

@@ -314,6 +314,19 @@ export const es = {
     columnas: {
       emptyState: "No hay tareas en esta columna.",
     },
+    comentarios: {
+      titulo: "Comentarios",
+      nuevo: "Nuevo comentario",
+      enviar: "Comentar",
+      createSuccess: "Comentario agregado.",
+      noEntries: "Todavía no hay comentarios.",
+    },
+    detalle: {
+      volver: "Volver al tablero",
+      estado: "Estado",
+      origen: "Origen",
+      sinDescripcion: "Sin descripción.",
+    },
     lista: {
       nav: "Lista",
       tablero: "Tablero",

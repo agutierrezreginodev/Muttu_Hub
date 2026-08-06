@@ -238,3 +238,61 @@ export async function listClienteOptions(): Promise<ClienteOption[]> {
 
   return (data ?? []).map((row) => ({ id: row.id, nombre: row.nombre }));
 }
+
+export interface ComentarioEntry {
+  id: number;
+  autorId: string;
+  texto: string;
+  createdAt: string;
+}
+
+/**
+ * Comment thread for one tarea (spec KM1, design D8). Newest first, matching
+ * `tarea_comentario_idx (tarea_id, created_at desc)` — the feed component never
+ * re-sorts, so this order IS the rendered order.
+ *
+ * Visibility is `tarea_comentario_select`, which calls `private.tarea_visible`:
+ * a caller who cannot see the tarea gets zero comments rather than an error, so
+ * the thread degrades exactly like every other list here.
+ */
+export async function listComentarios(
+  tareaId: number,
+): Promise<ComentarioEntry[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("tarea_comentario")
+    .select("id, autor_id, texto, created_at")
+    .eq("tarea_id", tareaId)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    autorId: row.autor_id,
+    texto: row.texto,
+    createdAt: row.created_at,
+  }));
+}
+
+/**
+ * One tarea for the detail route (slice 7). Reads `v_tarea`, so `tarea_select`
+ * RLS decides: an invisible row comes back as `null` and the page turns that into
+ * a 404 — never a "you are not allowed" that would confirm the row exists.
+ *
+ * Deliberately NOT filtered by origen, unlike `listBoardTareas`. This route is
+ * the bell's deep-link target (slice 10), and the bell reports on every origen
+ * the caller can see; filtering here would 404 a notification's own link.
+ */
+export async function getTareaDetalle(
+  tareaId: number,
+): Promise<BoardTarea | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("v_tarea")
+    .select(
+      "id, titulo, descripcion, responsable_id, cliente_id, fecha_limite, estado, prioridad, etiquetas, origen, columna, vencido, created_at",
+    )
+    .eq("id", tareaId)
+    .maybeSingle();
+
+  return data ? mapBoardTareaRow(data) : null;
+}

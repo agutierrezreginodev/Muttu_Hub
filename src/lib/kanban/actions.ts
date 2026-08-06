@@ -6,11 +6,14 @@ import { es } from "@/messages/es";
 import { createClient } from "@/lib/supabase/server";
 import { getCatalogoOptions, activeCatalogoOptions } from "@/lib/crm/catalogos";
 import type { Accion, Modulo } from "@/lib/permissions";
+import { getSessionContext } from "@/lib/session/get-session-context";
 import {
+  comentarioSchema,
   etiquetasSchema,
   moveTareaSchema,
   tareaCreateSchema,
   tareaUpdateSchema,
+  type ComentarioInput,
   type MoveTareaInput,
   type TareaCreateInput,
   type TareaUpdateInput,
@@ -185,6 +188,95 @@ export async function updateTareaAction(
   }
 
   revalidatePath("/kanban");
+  return { success: true };
+}
+
+/**
+ * Origen-aware `crear`/`editar` pre-check for a tarea CHILD row (design D7).
+ *
+ * Mirrors `private.tarea_origen_permite` branch for branch, and it has to: a
+ * comment on a CRM-origen tarea is authorized by `crm.crear`, not by
+ * `kanban.crear`. A flat kanban-only pre-check would refuse writes Postgres
+ * would have accepted, and an `'Ambos'` row is authorized by EITHER module.
+ *
+ * Returns the row's origen on success so the caller does not re-read it. A row
+ * RLS hid is indistinguishable from one that does not exist, by design.
+ */
+async function assertTareaOrigenPermite(
+  tareaId: number,
+  accion: Accion,
+): Promise<{ error: string } | { origen: string }> {
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("v_tarea")
+    .select("id, origen")
+    .eq("id", tareaId)
+    .maybeSingle();
+
+  if (!row) {
+    return { error: es.common.genericError };
+  }
+
+  const modulos: Modulo[] =
+    row.origen === "CRM"
+      ? ["crm"]
+      : row.origen === "Kanban"
+        ? ["kanban"]
+        : ["crm", "kanban"];
+
+  for (const modulo of modulos) {
+    const { data: allowed, error } = await supabase.rpc("has_permission", {
+      modulo,
+      accion,
+    });
+    if (!error && allowed) {
+      return { origen: row.origen };
+    }
+  }
+
+  return { error: es.common.genericError };
+}
+
+/**
+ * Append a comment to a tarea (spec KM1, design D8). Create-only by
+ * construction: `tarea_comentario` carries no UPDATE or DELETE grant for any
+ * role, so there is no edit path to write even if someone wanted one.
+ *
+ * `autor_id` comes from the session, never from the caller: the INSERT policy
+ * pins `autor_id = (select auth.uid())`, so a client-supplied author is rejected
+ * as 42501 — this is the friendlier gate on top of that.
+ */
+export async function createComentarioAction(
+  tareaId: number,
+  input: ComentarioInput,
+): Promise<KanbanActionState> {
+  const permiso = await assertTareaOrigenPermite(tareaId, "crear");
+  if ("error" in permiso) {
+    return { error: permiso.error };
+  }
+
+  const session = await getSessionContext();
+  if (!session) {
+    return { error: es.common.genericError };
+  }
+
+  const parsed = comentarioSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? es.common.genericError };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("tarea_comentario").insert({
+    tarea_id: tareaId,
+    autor_id: session.userId,
+    texto: parsed.data.texto,
+  });
+
+  if (error) {
+    return { error: es.common.genericError };
+  }
+
+  revalidatePath(`/kanban/${tareaId}`);
   return { success: true };
 }
 

@@ -3,12 +3,19 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { createClient } from "@/lib/supabase/server";
 import { getCatalogoOptions } from "@/lib/crm/catalogos";
 import { es } from "@/messages/es";
+import { getSessionContext } from "@/lib/session/get-session-context";
 import {
+  createComentarioAction,
   createTareaAction,
   deleteTareaAction,
   moveTareaAction,
   updateTareaAction,
 } from "@/lib/kanban/actions";
+
+const SESSION_USER_ID = "user-kanban-1";
+vi.mock("@/lib/session/get-session-context", () => ({
+  getSessionContext: vi.fn(),
+}));
 
 const revalidatePathMock = vi.fn();
 vi.mock("next/cache", () => ({
@@ -106,6 +113,14 @@ const VALID_UPDATE = {
 };
 
 beforeEach(() => {
+  vi.mocked(getSessionContext).mockResolvedValue({
+    userId: SESSION_USER_ID,
+    nombre: "Ana",
+    email: "ana@muttu-hub.test",
+    rolId: 1,
+    rolNombre: "Administrador",
+    permisos: {},
+  } as never);
   mockedCreateClient.mockReset();
   mockedGetCatalogoOptions.mockReset();
   revalidatePathMock.mockReset();
@@ -779,5 +794,162 @@ describe("moveTareaAction (design §6 — the single estado/columna sync point)"
     // navigation — design §6 step 7 calls for both revalidations.
     expect(revalidatePathMock).toHaveBeenCalledWith("/kanban");
     expect(revalidatePathMock).toHaveBeenCalledWith("/kanban", "layout");
+  });
+});
+
+/**
+ * A `rpc('has_permission')` spy that answers per module, so the origen-aware
+ * branch can be driven precisely (design D7).
+ */
+function permissionByModulo(allowed: Record<string, boolean>) {
+  const asked: { modulo: string; accion: string }[] = [];
+  const rpc = vi.fn((name: string, args?: unknown) => {
+    if (name === "has_permission") {
+      const typed = args as { modulo?: string; accion?: string } | undefined;
+      const modulo = typed?.modulo ?? "";
+      asked.push({ modulo, accion: typed?.accion ?? "" });
+      return Promise.resolve({ data: allowed[modulo] ?? false, error: null });
+    }
+    return Promise.resolve({ data: null, error: null });
+  });
+  return { rpc, asked };
+}
+
+function buildComentarioMock(options: {
+  allowed: Record<string, boolean>;
+  origen?: string | null;
+  insertError?: unknown;
+}) {
+  const insert = vi.fn((_payload: Record<string, unknown>) =>
+    Promise.resolve({ error: options.insertError ?? null }),
+  );
+  const { rpc, asked } = permissionByModulo(options.allowed);
+
+  const from = vi.fn((table: string) => {
+    if (table === "v_tarea") {
+      const chain = {
+        select: () => chain,
+        eq: () => chain,
+        maybeSingle: () =>
+          Promise.resolve({
+            data:
+              options.origen === null
+                ? null
+                : { id: 7, origen: options.origen ?? "Kanban" },
+            error: null,
+          }),
+      };
+      return chain;
+    }
+    return { insert };
+  });
+
+  return { rpc, from, insert, asked };
+}
+
+describe("createComentarioAction (spec KM1, design D7/D8)", () => {
+  it("inserts the comment with the caller as autor", async () => {
+    const supabase = buildComentarioMock({ allowed: { kanban: true } });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await createComentarioAction(7, {
+      texto: "Actualicé el alcance con el cliente.",
+    });
+
+    expect(result.success).toBe(true);
+    // `tarea_comentario_insert` pins `autor_id = auth.uid()`, so the action must
+    // send the session's own id — a client-supplied autor is rejected by RLS.
+    expect(supabase.insert).toHaveBeenCalledWith({
+      tarea_id: 7,
+      autor_id: SESSION_USER_ID,
+      texto: "Actualicé el alcance con el cliente.",
+    });
+  });
+
+  it("accepts a crm.crear holder commenting on a CRM-origen tarea", async () => {
+    const supabase = buildComentarioMock({
+      allowed: { crm: true, kanban: false },
+      origen: "CRM",
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await createComentarioAction(7, { texto: "Nota CRM" });
+
+    // D7: `tarea_origen_permite` grants on the row's OWN origen module. A
+    // kanban-only pre-check would refuse a write Postgres would have accepted.
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts either module for an 'Ambos' tarea", async () => {
+    const supabase = buildComentarioMock({
+      allowed: { crm: false, kanban: true },
+      origen: "Ambos",
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    expect((await createComentarioAction(7, { texto: "Nota" })).success).toBe(
+      true,
+    );
+  });
+
+  it("refuses when the row's origen module denies crear", async () => {
+    const supabase = buildComentarioMock({
+      allowed: { crm: true, kanban: false },
+      origen: "Kanban",
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await createComentarioAction(7, { texto: "Nota" });
+
+    // Holding crm.crear must not let anyone comment on a Kanban-origen row.
+    expect(result.error).toBe(es.common.genericError);
+    expect(supabase.insert).not.toHaveBeenCalled();
+  });
+
+  it("returns the generic error for a tarea RLS hid", async () => {
+    const supabase = buildComentarioMock({
+      allowed: { kanban: true },
+      origen: null,
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await createComentarioAction(7, { texto: "Nota" });
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(supabase.insert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blank comment before touching the database", async () => {
+    const supabase = buildComentarioMock({ allowed: { kanban: true } });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    // `texto text not null check (length(btrim(texto)) > 0)` would raise 23514;
+    // this is the friendlier gate on top of it.
+    const result = await createComentarioAction(7, { texto: "   " });
+
+    expect(result.error).toBe(es.common.requiredField);
+    expect(supabase.insert).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an insert failure instead of reporting success", async () => {
+    const supabase = buildComentarioMock({
+      allowed: { kanban: true },
+      insertError: { message: "denied" },
+    });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    const result = await createComentarioAction(7, { texto: "Nota" });
+
+    expect(result.error).toBe(es.common.genericError);
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the tarea detail route", async () => {
+    const supabase = buildComentarioMock({ allowed: { kanban: true } });
+    mockedCreateClient.mockResolvedValue(supabase as never);
+
+    await createComentarioAction(7, { texto: "Nota" });
+
+    expect(revalidatePathMock).toHaveBeenCalledWith("/kanban/7");
   });
 });
