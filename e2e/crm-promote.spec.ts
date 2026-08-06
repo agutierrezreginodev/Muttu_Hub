@@ -25,12 +25,16 @@ test.describe("promover un compromiso al tablero", () => {
     const compromisoTitulo = `Compromiso promovido ${Date.now()}`;
 
     // --- A cliente to hang the compromiso off ---
+    // Same shape crm-flow and documentos use: creating a cliente does NOT
+    // navigate, so the list link is what takes you to the ficha.
     await page.goto("/crm");
     await page.getByRole("button", { name: "Crear cliente" }).click();
     const clienteDialog = page.getByRole("dialog");
-    await clienteDialog.getByLabel("Nombre").fill(clienteNombre);
+    await clienteDialog.locator("#cliente-nombre").fill(clienteNombre);
     await clienteDialog.getByRole("button", { name: "Guardar" }).click();
-    await page.waitForURL(/\/crm\/\d+/, { timeout: 45_000 });
+    await expect(page.getByText("Cliente creado.")).toBeVisible();
+    await page.getByRole("link", { name: clienteNombre }).click();
+    await page.waitForURL(/\/crm\/\d+$/, { timeout: 45_000 });
 
     // --- A compromiso on it ---
     await page.getByRole("link", { name: "Compromisos" }).click();
@@ -38,10 +42,14 @@ test.describe("promover un compromiso al tablero", () => {
     await page.getByRole("button", { name: "Crear compromiso" }).click();
     const compromisoDialog = page.getByRole("dialog");
     await compromisoDialog.getByLabel("Título").fill(compromisoTitulo);
-    await compromisoDialog.getByRole("button", { name: "Guardar" }).click();
-    await expect(page.getByText(compromisoTitulo)).toBeVisible({
-      timeout: 45_000,
-    });
+    await page.getByRole("button", { name: "Guardar" }).click();
+    // Scoped to the table's own badge: the ficha header also renders this
+    // title as the "próximo compromiso", so an unscoped text match resolves to
+    // two elements and fails strict mode.
+    const filaCompromiso = page
+      .locator('[data-testid^="tarea-titulo-badge-"]')
+      .filter({ hasText: compromisoTitulo });
+    await expect(filaCompromiso).toBeVisible({ timeout: 45_000 });
 
     // --- Promote it ---
     await page.getByRole("button", { name: "Poner en el tablero" }).click();
@@ -52,7 +60,11 @@ test.describe("promover un compromiso al tablero", () => {
     // It must still be here. Asserted after a reload, never on the paint the
     // click produced.
     await page.reload();
-    await expect(page.getByText(compromisoTitulo)).toBeVisible();
+    await expect(
+      page
+        .locator('[data-testid^="tarea-titulo-badge-"]')
+        .filter({ hasText: compromisoTitulo }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Quitar del tablero" }),
     ).toBeVisible();

@@ -17,6 +17,14 @@ function requireEnv(name: string): string {
 }
 
 export const SUPABASE_URL = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
+
+/**
+ * Needed by `daily-digest.spec.ts`: a VALID JWT that is not the service-role
+ * key. The Edge Function sits behind `verify_jwt`, so a malformed token is
+ * rejected by the platform before the handler's own service-role check runs —
+ * proving that check needs a token the platform accepts.
+ */
+export const SUPABASE_ANON_KEY = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 export const SUPABASE_SERVICE_ROLE_KEY = requireEnv(
   "SUPABASE_SERVICE_ROLE_KEY",
 );

@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
+  SUPABASE_ANON_KEY,
   E2E_ADMIN_EMAIL,
 } from "./env";
 import { countMessagesTo, waitForMessageTo } from "./utils/mailpit";
@@ -51,8 +52,12 @@ test.describe("daily digest", () => {
   });
 
   test("refuses a caller without the service-role key", async () => {
+    // The anon key, NOT a garbage string. `verify_jwt` rejects a malformed
+    // token at the platform edge with its own error, which would make this
+    // test pass without the handler's check ever running. A valid JWT that
+    // simply is not the service-role key is what actually exercises it.
     const { status, body } = await invoke({
-      Authorization: "Bearer not-the-service-role-key",
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
     });
 
     expect(status).toBe(401);
@@ -82,21 +87,37 @@ test.describe("daily digest", () => {
       .eq("nombre", "Administrador")
       .maybeSingle();
 
-    await supabase
+    const { error: usuarioError } = await supabase
       .from("usuario")
       .insert({ id: usuarioId, nombre: "Digest E2E", email, rol_id: rol!.id });
+    expect(usuarioError).toBeNull();
 
     const dias = (n: number) =>
       new Date(Date.now() + n * 24 * 60 * 60 * 1000).toISOString();
 
-    await supabase.from("tarea").insert([
+    // Seeded through a USER-scoped client, not the service role. The audit
+    // trigger fills created_by from auth.uid(), which is null under the
+    // service role — the insert then violates a not-null constraint. Ignoring
+    // that error is exactly how this test first "passed the setup" and then
+    // reported enviados: 0 with no tareas in the database at all.
+    const asUsuario = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error: signInError } = await asUsuario.auth.signInWithPassword({
+      email,
+      password: "DigestE2ePass123",
+    });
+    expect(signInError).toBeNull();
+
+    const { error: tareaError } = await asUsuario.from("tarea").insert([
       // Counts: overdue and owned.
-      { titulo: `E2E vencida ${Date.now()}`, responsable_id: usuarioId, fecha_limite: dias(-2), estado: "pendiente", origen: "Kanban", created_by: usuarioId, updated_by: usuarioId },
+      { titulo: `E2E vencida ${Date.now()}`, responsable_id: usuarioId, fecha_limite: dias(-2), estado: "pendiente", origen: "Kanban" },
       // Counts: inside the 72h window.
-      { titulo: `E2E pronto ${Date.now()}`, responsable_id: usuarioId, fecha_limite: dias(2), estado: "en_curso", origen: "Kanban", created_by: usuarioId, updated_by: usuarioId },
+      { titulo: `E2E pronto ${Date.now()}`, responsable_id: usuarioId, fecha_limite: dias(2), estado: "en_curso", origen: "Kanban" },
       // Must NOT count: past due, but a borrador nobody owns (VM1/C10).
-      { titulo: `E2E borrador ${Date.now()}`, responsable_id: null, fecha_limite: dias(-3), estado: "borrador", origen: "Kanban", created_by: usuarioId, updated_by: usuarioId },
+      { titulo: `E2E borrador ${Date.now()}`, responsable_id: null, fecha_limite: dias(-3), estado: "borrador", origen: "Kanban" },
     ]);
+    expect(tareaError).toBeNull();
 
     // --- First run ---
     const first = await invoke(authorized);
@@ -143,18 +164,30 @@ test.describe("daily digest", () => {
       email: optedOutEmail,
       rol_id: rol!.id,
     });
-    await supabase.from("tarea").insert({
+    const asOptedOut = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    await asOptedOut.auth.signInWithPassword({
+      email: optedOutEmail,
+      password: "DigestE2EPass123",
+    });
+    const { error: optOutTareaError } = await asOptedOut.from("tarea").insert({
       titulo: `E2E opt-out ${Date.now()}`,
       responsable_id: optedOutId,
       fecha_limite: dias(-1),
       estado: "pendiente",
       origen: "Kanban",
-      created_by: optedOutId,
-      updated_by: optedOutId,
     });
-    await supabase
+    expect(optOutTareaError).toBeNull();
+    // Written by the USER, never by the service role. Slice 3 grants
+    // service_role only SELECT here — "the digest READS the opt-out flag and
+    // never writes it" — so a service-role insert silently fails and leaves
+    // the user opted IN, which is precisely how this test first sent mail to
+    // someone who had asked not to receive it.
+    const { error: prefError } = await asOptedOut
       .from("notificacion_preferencia")
       .insert({ usuario_id: optedOutId, resumen_diario_email: false });
+    expect(prefError).toBeNull();
 
     await invoke(authorized);
 
