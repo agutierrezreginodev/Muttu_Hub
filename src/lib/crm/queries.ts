@@ -326,6 +326,13 @@ export interface TareaListItem {
   estado: string;
   prioridad: string | null;
   vencido: boolean;
+  /**
+   * Needed by the Compromisos tab's promote toggle (kanban slice 9), which
+   * flips `'CRM' ⇄ 'Ambos'` and must render the current side. The `origen`
+   * FILTER is unchanged — `COMPROMISO_ORIGENES` already admits `'Ambos'`;
+   * only the selected shape grows.
+   */
+  origen: string;
 }
 
 function mapTareaRow(row: {
@@ -337,6 +344,7 @@ function mapTareaRow(row: {
   estado: string;
   prioridad: string | null;
   vencido: boolean;
+  origen: string;
 }): TareaListItem {
   return {
     id: row.id,
@@ -347,6 +355,7 @@ function mapTareaRow(row: {
     estado: row.estado,
     prioridad: row.prioridad,
     vencido: row.vencido,
+    origen: row.origen,
   };
 }
 
@@ -363,7 +372,7 @@ export async function listCompromisos(
   const { data } = await supabase
     .from("v_tarea")
     .select(
-      "id, titulo, descripcion, responsable_id, fecha_limite, estado, prioridad, vencido",
+      "id, titulo, descripcion, responsable_id, fecha_limite, estado, prioridad, vencido, origen",
     )
     .eq("cliente_id", clienteId)
     .in("origen", COMPROMISO_ORIGENES)
@@ -384,7 +393,7 @@ export async function listTareasRelacionadas(
   const { data } = await supabase
     .from("v_tarea")
     .select(
-      "id, titulo, descripcion, responsable_id, fecha_limite, estado, prioridad, vencido",
+      "id, titulo, descripcion, responsable_id, fecha_limite, estado, prioridad, vencido, origen",
     )
     .eq("cliente_id", clienteId)
     .eq("origen", TAREA_RELACIONADA_ORIGEN)
